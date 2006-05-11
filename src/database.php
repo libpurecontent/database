@@ -1,6 +1,15 @@
 <?php
 
-# PDO database access wrapper class
+/*
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
+ * Version 1.1.0
+ * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
+ * Requires PHP 4.1+ with register_globals set to 'off'
+ * Download latest from: http://download.geog.cam.ac.uk/projects/database/
+ */
+
+
+# Class containing basic generalised database manipulation functions for PDO
 class database
 {
 	# Global class variables
@@ -40,6 +49,21 @@ class database
 		
 		# Return success
   		return true;
+	}
+	
+	
+	# Function to execute a generic SQL query
+	function execute ($query)
+	{
+		# Connect to the database and return the status
+		try {
+			$rows = $this->connection->exec ($query);
+		} catch (PDOException $e) {
+			return false;
+		}
+		
+		# Return the number of affected rows
+  		return $rows;
 	}
 	
 	
@@ -247,6 +271,138 @@ class database
 		
 		# Return the data
 		return $data;
+	}
+	
+	
+	# Function to construct and execute a SELECT statement
+	function select ($database, $table, $data = array (), $columns = array (), $associative = true)
+	{
+		# Construct the WHERE clause
+		$where = '';
+		if ($data) {
+			$where = array ();
+			foreach ($data as $key => $value) {
+				$where[] = $key . "=" . $this->quote ($value);
+			}
+			$where = ' WHERE ' . implode (' AND ', $where);
+		}
+		
+		# Construct the columns part; if the key is numeric, assume it's not a key=>value pair, but that the value is the fieldname
+		$what = '*';
+		if ($columns) {
+			$what = array ();
+			foreach ($columns as $key => $value) {
+				if (is_numeric ($key)) {
+					$what[] = $value;
+				} else {
+					$what[] = "{$key} AS {$value}";
+				}
+			}
+			$what = implode (',', $what);
+		}
+		
+		# Assemble the query
+		$query = "SELECT {$what} FROM {$table}{$where};\n";
+		
+		# Get the data
+		$data = $this->getData ($query, ($associative ? "{$database}.{$table}" : false));
+		
+		# Return the data
+		return $data;
+	}
+	
+	
+	# Function to construct and execute an INSERT statement
+	function insert ($database, $table, $data)
+	{
+		# Ensure the data is an array and that there is data
+		if (!is_array ($data) || !$data) {return false;}
+		
+		# Assemble the field names
+		$fields = implode (',', array_keys ($data));
+		
+		# Assemble the values
+		foreach ($data as $key => $value) {
+			$values[] = $this->quote ($value);
+		}
+		$values = implode (',', $values);
+		
+		# Assemble the query
+		$query = "INSERT INTO {$database}.{$table} ({$fields}) VALUES ({$values});\n";
+		
+		# Execute the query
+		$rows = $this->execute ($query);
+		
+		# Determine the result
+		$result = ($rows !== false);
+		
+		# Return the result
+		return $result;
+	}
+	
+	
+	# Function to construct and execute an UPDATE statement
+	function update ($database, $table, $data, $conditions = array ())
+	{
+		# Ensure the data is an array and that there is data
+		if (!is_array ($data) || !$data) {return false;}
+		
+		# Assemble the pairs
+		foreach ($data as $key => $value) {
+			$updates[] = "{$key}=" . $this->quote ($value);
+			
+			# Make the condition be that the first item is the key if nothing specified
+			if (!$conditions) {
+				$conditions[$key] = $value;
+			}
+		}
+		$updates = implode (', ', $updates);
+		
+		# Construct the WHERE clause
+		$where = array ();
+		foreach ($conditions as $key => $value) {
+			$where[] = $key . "=" . $this->quote ($value);
+		}
+		$where = implode (' AND ', $where);
+		
+		# Assemble the query
+		$query = "UPDATE {$database}.{$table} SET {$updates} WHERE {$where};\n";
+		
+		# Execute the query
+		$rows = $this->execute ($query);
+		
+		# Determine the result
+		$result = ($rows !== false);
+		
+		# Return whether the operation failed or succeeded
+		return $result;
+	}
+	
+	
+	# Function to delete data
+	function delete ($database, $table, $conditions)
+	{
+		# Ensure the data is an array and that there is data
+		if (!is_array ($conditions) || !$conditions) {return false;}
+		
+		# Construct the WHERE clause
+		$where = '';
+		if ($conditions) {
+			$where = array ();
+			foreach ($conditions as $key => $value) {
+				$where[] = $key . "=" . $this->quote ($value);
+			}
+			$where = ' WHERE ' . implode (' AND ', $where);
+		}
+		
+		# Assemble the query
+		$query = "DELETE FROM {$table}{$where};\n";
+		
+		# Execute the query
+		$result = $this->execute ($query);
+		
+		# Return whether the operation failed or succeeded
+		return $result;
 	}
 }
 

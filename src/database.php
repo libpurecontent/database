@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.1.0
+ * Version 1.2.0
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -17,8 +17,12 @@ class database
 	
 	
 	# Function to connect to the database
-	function database ($hostname, $username, $password, $database = NULL, $vendor = 'mysql')
+	function database ($hostname, $username, $password, $database = NULL, $vendor = 'mysql', $logFile = false, $userForLogging = false)
 	{
+		# Assign the user for logging
+		$this->logFile = $logFile;
+		$this->userForLogging = $userForLogging;
+		
 		# Connect to the database and return the status
 		$dsn = "{$vendor}:host={$hostname}" . ($database ? ";dbname={$database}" : '');
 		try {
@@ -302,7 +306,7 @@ class database
 		}
 		
 		# Assemble the query
-		$query = "SELECT {$what} FROM {$table}{$where};\n";
+		$query = "SELECT {$what} FROM {$database}.{$table}{$where};\n";
 		
 		# Get the data
 		$data = $this->getData ($query, ($associative ? "{$database}.{$table}" : false));
@@ -335,6 +339,9 @@ class database
 		
 		# Determine the result
 		$result = ($rows !== false);
+		
+		# Log the change
+		$this->logChange ($query, $result);
 		
 		# Return the result
 		return $result;
@@ -374,8 +381,25 @@ class database
 		# Determine the result
 		$result = ($rows !== false);
 		
+		# Log the change
+		$this->logChange ($query, $result);
+		
 		# Return whether the operation failed or succeeded
 		return $result;
+	}
+	
+	
+	# Function to log a change
+	function logChange ($query, $result)
+	{
+		# End if logging disabled
+		if (!$this->logFile) {return false;}
+		
+		# Create the log entry
+		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d G:i:s') . ' by ' . $this->userForLogging . ' */ ' . str_replace ("\r\n", '\\r\\n', $query);
+		
+		# Log the change
+		file_put_contents ($this->logFile, $logEntry, FILE_APPEND);
 	}
 	
 	
@@ -396,10 +420,13 @@ class database
 		}
 		
 		# Assemble the query
-		$query = "DELETE FROM {$table}{$where};\n";
+		$query = "DELETE FROM {$database}.{$table}{$where};\n";
 		
 		# Execute the query
 		$result = $this->execute ($query);
+		
+		# Log the change
+		$this->logChange ($query, $result);
 		
 		# Return whether the operation failed or succeeded
 		return $result;

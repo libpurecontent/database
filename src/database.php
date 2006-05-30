@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.2.0
+ * Version 1.2.1
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -210,7 +210,7 @@ class database
 	function modifyDataSorting ($data, $columnName = 'title')
 	{
 		# Define strings to be ignored in the sort-order if they are at the start
-		$ignoreStrings = array ("'", 'A ', 'An ', 'The ');
+		$ignoreStrings = array ("'", '"', 'A ', 'An ', 'The ');
 		
 		# Loop through the data
 		foreach ($data as $key => $value) {
@@ -396,7 +396,7 @@ class database
 		if (!$this->logFile) {return false;}
 		
 		# Create the log entry
-		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d G:i:s') . ' by ' . $this->userForLogging . ' */ ' . str_replace ("\r\n", '\\r\\n', $query);
+		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d H:i:s') . ' by ' . $this->userForLogging . ' */ ' . str_replace ("\r\n", '\\r\\n', $query);
 		
 		# Log the change
 		file_put_contents ($this->logFile, $logEntry, FILE_APPEND);

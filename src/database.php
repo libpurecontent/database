@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.2.1
+ * Version 1.2.2
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -268,6 +268,11 @@ class database
 		# Strip slashes if necessary
 		if (get_magic_quotes_gpc ()) {
 			$data = stripslashes ($data);
+		}
+		
+		# Special case a timestamp indication as unquoted SQL
+		if ($data == 'NOW()') {
+			return $data;
 		}
 		
 		# Quote string by calling the PDO quoting method

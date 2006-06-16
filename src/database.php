@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.2.2
+ * Version 1.2.3
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -284,7 +284,7 @@ class database
 	
 	
 	# Function to construct and execute a SELECT statement
-	function select ($database, $table, $data = array (), $columns = array (), $associative = true)
+	function select ($database, $table, $data = array (), $columns = array (), $associative = true, $orderBy = false)
 	{
 		# Construct the WHERE clause
 		$where = '';
@@ -310,8 +310,11 @@ class database
 			$what = implode (',', $what);
 		}
 		
+		# Construct the ordering
+		$orderBy = ($orderBy ? " ORDER BY {$orderBy}" : '');
+		
 		# Assemble the query
-		$query = "SELECT {$what} FROM {$database}.{$table}{$where};\n";
+		$query = "SELECT {$what} FROM {$database}.{$table}{$where}{$orderBy};\n";
 		
 		# Get the data
 		$data = $this->getData ($query, ($associative ? "{$database}.{$table}" : false));

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.2.3
+ * Version 1.2.4
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -325,13 +325,13 @@ class database
 	
 	
 	# Function to construct and execute an INSERT statement
-	function insert ($database, $table, $data)
+	function insert ($database, $table, $data, $onDuplicateKeyUpdate = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
 		
 		# Assemble the field names
-		$fields = implode (',', array_keys ($data));
+		$fields = '`' . implode ('`,`', array_keys ($data)) . '`';
 		
 		# Assemble the values
 		foreach ($data as $key => $value) {
@@ -339,8 +339,23 @@ class database
 		}
 		$values = implode (',', $values);
 		
+		# Allow for an optional ON DUPLICATE KEY UPDATE clause - see: http://dev.mysql.com/doc/refman/5.1/en/insert-on-duplicate.html
+		#!# Quoting?
+		if ($onDuplicateKeyUpdate) {
+			if ($onDuplicateKeyUpdate === true) {
+				foreach ($data as $key => $value) {
+					$clauses[] = "`{$key}`=VALUES(`{$key}`)";
+				}
+				$onDuplicateKeyUpdate = ' ON DUPLICATE KEY UPDATE ' . implode (',', $clauses);
+			} else {
+				$onDuplicateKeyUpdate = " ON DUPLICATE KEY UPDATE {$onDuplicateKeyUpdate}";
+			}
+		} else {
+			$onDuplicateKeyUpdate = '';
+		}
+		
 		# Assemble the query
-		$query = "INSERT INTO {$database}.{$table} ({$fields}) VALUES ({$values});\n";
+		$query = "INSERT INTO {$database}.{$table} ({$fields}) VALUES ({$values}){$onDuplicateKeyUpdate};\n";
 		
 		# Execute the query
 		$rows = $this->execute ($query);

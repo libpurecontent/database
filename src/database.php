@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.2.4
+ * Version 1.3.0
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -57,12 +57,13 @@ class database
 	
 	
 	# Function to execute a generic SQL query
-	function execute ($query)
+	function execute ($query, $debug = false)
 	{
 		# Connect to the database and return the status
 		try {
 			$rows = $this->connection->exec ($query);
 		} catch (PDOException $e) {
+			if ($debug) {echo $e;}
 			return false;
 		}
 		
@@ -325,7 +326,7 @@ class database
 	
 	
 	# Function to construct and execute an INSERT statement
-	function insert ($database, $table, $data, $onDuplicateKeyUpdate = false)
+	function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $debug = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
@@ -357,8 +358,11 @@ class database
 		# Assemble the query
 		$query = "INSERT INTO {$database}.{$table} ({$fields}) VALUES ({$values}){$onDuplicateKeyUpdate};\n";
 		
+		# Show debugging info if required
+		if ($debug) {echo $query;}
+		
 		# Execute the query
-		$rows = $this->execute ($query);
+		$rows = $this->execute ($query, $debug);
 		
 		# Determine the result
 		$result = ($rows !== false);

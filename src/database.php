@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.3.0
+ * Version 1.3.1
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -457,6 +457,23 @@ class database
 		
 		# Return whether the operation failed or succeeded
 		return $result;
+	}
+	
+	
+	# Function to get field descriptions as a simple associative array
+	function getHeadings ($database, $table)
+	{
+		# Get the fields
+		$fields = $this->getFields ($database, $table);
+		
+		# Rearrange the data
+		$headings = array ();
+		foreach ($fields as $field => $attributes) {
+			$headings[$field] = $attributes['Comment'];
+		}
+		
+		# Return the headings
+		return $headings;
 	}
 }
 

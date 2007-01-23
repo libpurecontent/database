@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.3.1
+ * Version 1.3.2
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -59,6 +59,11 @@ class database
 	# Function to execute a generic SQL query
 	function execute ($query, $debug = false)
 	{
+		# Show the query if debugging
+		if ($debug) {
+			echo $query . "<br />";
+		}
+		
 		# Connect to the database and return the status
 		try {
 			$rows = $this->connection->exec ($query);
@@ -326,7 +331,7 @@ class database
 	
 	
 	# Function to construct and execute an INSERT statement
-	function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $debug = false)
+	function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $safe = false, $showErrors = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
@@ -358,11 +363,14 @@ class database
 		# Assemble the query
 		$query = "INSERT INTO {$database}.{$table} ({$fields}) VALUES ({$values}){$onDuplicateKeyUpdate};\n";
 		
-		# Show debugging info if required
-		if ($debug) {echo $query;}
+		# In safe mode, only show the query
+		if ($safe) {
+			echo $query . "<br />";
+			return true;
+		}
 		
 		# Execute the query
-		$rows = $this->execute ($query, $debug);
+		$rows = $this->execute ($query, $showErrors);
 		
 		# Determine the result
 		$result = ($rows !== false);
@@ -376,7 +384,7 @@ class database
 	
 	
 	# Function to construct and execute an UPDATE statement
-	function update ($database, $table, $data, $conditions = array ())
+	function update ($database, $table, $data, $conditions = array (), $safe = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
@@ -401,6 +409,12 @@ class database
 		
 		# Assemble the query
 		$query = "UPDATE {$database}.{$table} SET {$updates} WHERE {$where};\n";
+		
+		# In safe mode, only show the query
+		if ($safe) {
+			echo $query . "<br />";
+			return true;
+		}
 		
 		# Execute the query
 		$rows = $this->execute ($query);

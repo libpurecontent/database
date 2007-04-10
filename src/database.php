@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.3.2
+ * Version 1.3.3
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -211,43 +211,6 @@ class database
 	}
 	
 	
-	# Function to modify the sort order of the data to take account of opening non-alphanumeric characters
-	#!# Really this ought to be done in the SQL, but no way yet found to remove "'", 'a', 'an', or 'the' from the start
-	function modifyDataSorting ($data, $columnName = 'title')
-	{
-		# Define strings to be ignored in the sort-order if they are at the start
-		$ignoreStrings = array ("'", '"', 'A ', 'An ', 'The ');
-		
-		# Loop through the data
-		foreach ($data as $key => $value) {
-			$sortedData[$key] = $value;
-			
-			# Determine the corrected item
-			$newColumn = $value[$columnName];
-			foreach ($ignoreStrings as $ignoreString) {
-				if (substr ($newColumn, 0, strlen ($ignoreString)) == $ignoreString) {
-					$newColumn = substr ($newColumn, strlen ($ignoreString));
-				}
-			}
-			
-			# Add in the new additional title column
-			$sortedData[$key]["_{$columnName}"] = $newColumn;
-		}
-		
-		# Resort the data by the specified column name by creating an anonymous function for the purpose
-		$sortFunction = create_function ('$a,$b', 'return strcmp ($a["_' . $columnName . '"], $b["_' . $columnName . '"]);');
-		usort ($sortedData, $sortFunction);
-		
-		# Discard the additional column name
-		foreach ($sortedData as $key => $value) {
-			unset ($sortedData[$key]["_{$columnName}"]);
-		}
-		
-		# Return the data
-		return $sortedData;
-	}
-	
-	
 	# Function to clean all data
 	function escape ($uncleanData, $cleanKeys = true)
 	{
@@ -435,6 +398,9 @@ class database
 	{
 		# End if logging disabled
 		if (!$this->logFile) {return false;}
+		
+		# End if file is not writable
+		if (!is_writable ($this->logFile)) {return false;}
 		
 		# Create the log entry
 		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d H:i:s') . ' by ' . $this->userForLogging . ' */ ' . str_replace ("\r\n", '\\r\\n', $query);

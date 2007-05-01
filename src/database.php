@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.3.3
+ * Version 1.3.4
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -22,6 +22,10 @@ class database
 		# Assign the user for logging
 		$this->logFile = $logFile;
 		$this->userForLogging = $userForLogging;
+		
+		# Make attributes available for querying by calling applications
+		$this->hostname = $hostname;
+		$this->vendor = $vendor;
 		
 		# Connect to the database and return the status
 		$dsn = "{$vendor}:host={$hostname}" . ($database ? ";dbname={$database}" : '');
@@ -87,6 +91,7 @@ class database
 		if (count ($data) !== 1) {return false;}
 		
 		# Return the data
+		#!# This could be unset if it's associative
 		return $data[0];
 	}
 	
@@ -160,10 +165,10 @@ class database
 	
 	
 	# Function to get the unique field name
-	function getUniqueField ($database, $table)
+	function getUniqueField ($database, $table, $fields = false)
 	{
 		# Get the fields
-		$fields = $this->getFields ($database, $table);
+		if (!$fields) {$fields = $this->getFields ($database, $table);}
 		
 		# Loop through to find the unique one
 		foreach ($fields as $field => $attributes) {
@@ -182,6 +187,28 @@ class database
 	{
 		# Get the array keys of the fields
 		return array_keys ($this->getFields ($database, $table));
+	}
+	
+	
+	# Function to obtain a list of databases on the server
+	function getDatabases ($removeReserved = true)
+	{
+		# Get the data
+		$query = "SHOW DATABASES;";
+		$data = $this->getData ($query);
+		
+		# Define reserved databases
+		$reserved = array ('information_schema', 'mysql');
+		
+		# Rearrange
+		$databases = array ();
+		foreach ($data as $index => $attributes) {
+			if ($removeReserved && in_array ($attributes['Database'], $reserved)) {continue;}
+			$databases[] = $attributes['Database'];
+		}
+		
+		# Return the data
+		return $databases;
 	}
 	
 	
@@ -253,7 +280,7 @@ class database
 	
 	
 	# Function to construct and execute a SELECT statement
-	function select ($database, $table, $data = array (), $columns = array (), $associative = true, $orderBy = false)
+	function select ($database, $table, $data = array (), $columns = array (), $associative = true, $orderBy = false/*, $getOne = false*/)
 	{
 		# Construct the WHERE clause
 		$where = '';
@@ -283,7 +310,7 @@ class database
 		$orderBy = ($orderBy ? " ORDER BY {$orderBy}" : '');
 		
 		# Assemble the query
-		$query = "SELECT {$what} FROM {$database}.{$table}{$where}{$orderBy};\n";
+		$query = "SELECT {$what} FROM `{$database}`.`{$table}`{$where}{$orderBy};\n";
 		
 		# Get the data
 		$data = $this->getData ($query, ($associative ? "{$database}.{$table}" : false));

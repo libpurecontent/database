@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.3.4
+ * Version 1.3.5
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -481,6 +481,31 @@ class database
 		
 		# Return the headings
 		return $headings;
+	}
+	
+	
+	# Function to get table metadata
+	function getTableStatus ($database, $table, $getOnly = false /*array ('Comment')*/)
+	{
+		# Define the query
+		$query = "SHOW TABLE STATUS FROM `{$database}` LIKE '{$table}';";
+		
+		# Get the results
+		$data = $this->getOne ($query);
+		
+		# If only needing certain columns, return only those
+		if ($getOnly && is_array ($getOnly)) {
+			foreach ($getOnly as $field) {
+				if (isSet ($data[$field])) {
+					$attributes[$field] = $data[$field];
+				}
+			}
+		} else {
+			$attributes = $data;
+		}
+		
+		# Return the results
+		return $attributes;
 	}
 }
 

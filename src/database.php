@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.3.5
+ * Version 1.3.6
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -167,7 +167,7 @@ class database
 	# Function to get the unique field name
 	function getUniqueField ($database, $table, $fields = false)
 	{
-		# Get the fields
+		# Get the fields if not already supplied
 		if (!$fields) {$fields = $this->getFields ($database, $table);}
 		
 		# Loop through to find the unique one
@@ -183,10 +183,13 @@ class database
 	
 	
 	# Function to get field names
-	function getFieldNames ($database, $table)
+	function getFieldNames ($database, $table, $fields = false)
 	{
+		# Get the fields if not already supplied
+		if (!$fields) {$fields = $this->getFields ($database, $table);}
+		
 		# Get the array keys of the fields
-		return array_keys ($this->getFields ($database, $table));
+		return array_keys ($fields);
 	}
 	
 	
@@ -280,13 +283,13 @@ class database
 	
 	
 	# Function to construct and execute a SELECT statement
-	function select ($database, $table, $data = array (), $columns = array (), $associative = true, $orderBy = false/*, $getOne = false*/)
+	function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false/*, $getOne = false*/)
 	{
 		# Construct the WHERE clause
 		$where = '';
-		if ($data) {
+		if ($conditions) {
 			$where = array ();
-			foreach ($data as $key => $value) {
+			foreach ($conditions as $key => $value) {
 				$where[] = $key . "=" . $this->quote ($value);
 			}
 			$where = ' WHERE ' . implode (' AND ', $where);
@@ -381,7 +384,7 @@ class database
 		
 		# Assemble the pairs
 		foreach ($data as $key => $value) {
-			$updates[] = "{$key}=" . $this->quote ($value);
+			$updates[] = "`{$key}`=" . $this->quote ($value);
 			
 			# Make the condition be that the first item is the key if nothing specified
 			if (!$conditions) {
@@ -393,7 +396,7 @@ class database
 		# Construct the WHERE clause
 		$where = array ();
 		foreach ($conditions as $key => $value) {
-			$where[] = $key . "=" . $this->quote ($value);
+			$where[] = '`' . $key . "` = " . $this->quote ($value);
 		}
 		$where = implode (' AND ', $where);
 		

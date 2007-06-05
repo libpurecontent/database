@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.3.6
+ * Version 1.4.0
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -14,7 +14,7 @@ class database
 {
 	# Global class variables
 	var $connection = NULL;
-	
+	var $query = NULL;
 	
 	# Function to connect to the database
 	function database ($hostname, $username, $password, $database = NULL, $vendor = 'mysql', $logFile = false, $userForLogging = false)
@@ -48,9 +48,12 @@ class database
 	# Function to execute a generic SQL query
 	function query ($query)
 	{
+		# Global the query
+		$this->query = $query;
+		
 		# Connect to the database and return the status
 		try {
-			$this->connection->query ($query);
+			$this->connection->query ($this->query);
 		} catch (PDOException $e) {
 			return false;
 		}
@@ -63,14 +66,17 @@ class database
 	# Function to execute a generic SQL query
 	function execute ($query, $debug = false)
 	{
+		# Global the query
+		$this->query = $query;
+		
 		# Show the query if debugging
 		if ($debug) {
-			echo $query . "<br />";
+			echo $this->query . "<br />";
 		}
 		
 		# Connect to the database and return the status
 		try {
-			$rows = $this->connection->exec ($query);
+			$rows = $this->connection->exec ($this->query);
 		} catch (PDOException $e) {
 			if ($debug) {echo $e;}
 			return false;
@@ -84,8 +90,11 @@ class database
 	# Function to get the data where only one item will be returned; this function has the same signature as getData
 	function getOne ($query, $associative = false, $keyed = true)
 	{
+		# Global the query
+		$this->query = $query;
+		
 		# Get the data
-		$data = $this->getData ($query, $associative, $keyed);
+		$data = $this->getData ($this->query, $associative, $keyed);
 		
 		# Ensure that only one item is returned
 		if (count ($data) !== 1) {return false;}
@@ -99,11 +108,14 @@ class database
 	# Function to get data from an SQL query and return it as an array
 	function getData ($query, $associative = false, $keyed = true)
 	{
+		# Global the query
+		$this->query = $query;
+		
 		# Create an empty array to hold the data
 		$data = array ();
 		
 		# Assign the query
-		if (!$statement = $this->connection->query ($query)) {
+		if (!$statement = $this->connection->query ($this->query)) {
 			return $data;
 		}
 		
@@ -134,6 +146,7 @@ class database
 			# Re-key with the field name
 			$newData = array ();
 			foreach ($data as $key => $attributes) {
+				#!# This causes offsets if the key is not amongst the fields requested
 				$newData[$attributes[$uniqueField]] = $attributes;
 			}
 			
@@ -150,8 +163,8 @@ class database
 	function getFields ($database, $table)
 	{
 		# Get the data
-		$query = "SHOW FULL FIELDS FROM {$database}.{$table};";
-		$data = $this->getData ($query);
+		$this->query = "SHOW FULL FIELDS FROM {$database}.{$table};";
+		$data = $this->getData ($this->query);
 		
 		# Convert the field name to be the key name
 		$fields = array ();
@@ -197,8 +210,8 @@ class database
 	function getDatabases ($removeReserved = true)
 	{
 		# Get the data
-		$query = "SHOW DATABASES;";
-		$data = $this->getData ($query);
+		$this->query = "SHOW DATABASES;";
+		$data = $this->getData ($this->query);
 		
 		# Define reserved databases
 		$reserved = array ('information_schema', 'mysql');
@@ -219,8 +232,8 @@ class database
 	function getTables ($database)
 	{
 		# Get the data
-		$query = "SHOW TABLES FROM {$database};";
-		$data = $this->getData ($query);
+		$this->query = "SHOW TABLES FROM {$database};";
+		$data = $this->getData ($this->query);
 		
 		# Rearrange
 		$tables = array ();
@@ -313,10 +326,10 @@ class database
 		$orderBy = ($orderBy ? " ORDER BY {$orderBy}" : '');
 		
 		# Assemble the query
-		$query = "SELECT {$what} FROM `{$database}`.`{$table}`{$where}{$orderBy};\n";
+		$this->query = "SELECT {$what} FROM `{$database}`.`{$table}`{$where}{$orderBy};\n";
 		
 		# Get the data
-		$data = $this->getData ($query, ($associative ? "{$database}.{$table}" : false));
+		$data = $this->getData ($this->query, ($associative ? "{$database}.{$table}" : false));
 		
 		# Return the data
 		return $data;
@@ -354,22 +367,22 @@ class database
 		}
 		
 		# Assemble the query
-		$query = "INSERT INTO {$database}.{$table} ({$fields}) VALUES ({$values}){$onDuplicateKeyUpdate};\n";
+		$this->query = "INSERT INTO {$database}.{$table} ({$fields}) VALUES ({$values}){$onDuplicateKeyUpdate};\n";
 		
 		# In safe mode, only show the query
 		if ($safe) {
-			echo $query . "<br />";
+			echo $this->query . "<br />";
 			return true;
 		}
 		
 		# Execute the query
-		$rows = $this->execute ($query, $showErrors);
+		$rows = $this->execute ($this->query, $showErrors);
 		
 		# Determine the result
 		$result = ($rows !== false);
 		
 		# Log the change
-		$this->logChange ($query, $result);
+		$this->logChange ($this->query, $result);
 		
 		# Return the result
 		return $result;
@@ -401,22 +414,22 @@ class database
 		$where = implode (' AND ', $where);
 		
 		# Assemble the query
-		$query = "UPDATE {$database}.{$table} SET {$updates} WHERE {$where};\n";
+		$this->query = "UPDATE {$database}.{$table} SET {$updates} WHERE {$where};\n";
 		
 		# In safe mode, only show the query
 		if ($safe) {
-			echo $query . "<br />";
+			echo $this->query . "<br />";
 			return true;
 		}
 		
 		# Execute the query
-		$rows = $this->execute ($query);
+		$rows = $this->execute ($this->query);
 		
 		# Determine the result
 		$result = ($rows !== false);
 		
 		# Log the change
-		$this->logChange ($query, $result);
+		$this->logChange ($this->query, $result);
 		
 		# Return whether the operation failed or succeeded
 		return $result;
@@ -457,13 +470,13 @@ class database
 		}
 		
 		# Assemble the query
-		$query = "DELETE FROM {$database}.{$table}{$where};\n";
+		$this->query = "DELETE FROM {$database}.{$table}{$where};\n";
 		
 		# Execute the query
-		$result = $this->execute ($query);
+		$result = $this->execute ($this->query);
 		
 		# Log the change
-		$this->logChange ($query, $result);
+		$this->logChange ($this->query, $result);
 		
 		# Return whether the operation failed or succeeded
 		return $result;
@@ -491,10 +504,10 @@ class database
 	function getTableStatus ($database, $table, $getOnly = false /*array ('Comment')*/)
 	{
 		# Define the query
-		$query = "SHOW TABLE STATUS FROM `{$database}` LIKE '{$table}';";
+		$this->query = "SHOW TABLE STATUS FROM `{$database}` LIKE '{$table}';";
 		
 		# Get the results
-		$data = $this->getOne ($query);
+		$data = $this->getOne ($this->query);
 		
 		# If only needing certain columns, return only those
 		if ($getOnly && is_array ($getOnly)) {
@@ -509,6 +522,20 @@ class database
 		
 		# Return the results
 		return $attributes;
+	}
+	
+	
+	# Function to get error information
+	function error ()
+	{
+		# Get the error details
+		$error = $this->connection->errorInfo ();
+		
+		# Add in the SQL statement
+		$error['query'] = $this->query;
+		
+		# Return the details
+		return $error;
 	}
 }
 

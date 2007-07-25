@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.4.1
+ * Version 1.4.2
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -522,6 +522,18 @@ class database
 		
 		# Return the results
 		return $attributes;
+	}
+	
+	
+	# Function to count the number of records
+	function getTotal ($database, $table)
+	{
+		# Get the total
+		$query = "SELECT count(id) as total FROM {$database}.{$table}";
+		$data = $this->getOne ($query);
+		
+		# Return the value
+		return $data['total'];
 	}
 	
 	

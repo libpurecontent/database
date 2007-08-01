@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.4.2
+ * Version 1.4.3
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -105,6 +105,32 @@ class database
 	}
 	
 	
+	# Function to get the data where only one column per item will be returned
+	function getPairs ($query, $associative = false, $keyed = true, $trimAndUnique = true)
+	{
+		# Global the query
+		$this->query = $query;
+		
+		# Get the data
+		$data = $this->getData ($this->query, $associative, $keyed);
+		
+		# Arrange the data into key/value pairs
+		$pairs = array ();
+		foreach ($data as $key => $item) {
+			foreach ($item as $value) {
+				$pairs[$key] = ($trimAndUnique ? trim ($value) : $value);
+				break;
+			}
+		}
+		
+		# Unique the data if necessary
+		if ($trimAndUnique) {$pairs = array_unique ($pairs);}
+		
+		# Return the data
+		return $pairs;
+	}
+	
+	
 	# Function to get data from an SQL query and return it as an array
 	function getData ($query, $associative = false, $keyed = true)
 	{
@@ -203,6 +229,23 @@ class database
 		
 		# Get the array keys of the fields
 		return array_keys ($fields);
+	}
+	
+	
+	# Function to get field descriptions as a simple associative array
+	function getHeadings ($database, $table, $fields = false, $useFieldnameIfEmpty = true, $commentsAsHeadings = true)
+	{
+		# Get the fields if not already supplied
+		if (!$fields) {$fields = $this->getFields ($database, $table);}
+		
+		# Rearrange the data
+		$headings = array ();
+		foreach ($fields as $field => $attributes) {
+			$headings[$field] = ((((empty ($attributes['Comment']) && $useFieldnameIfEmpty)) || !$commentsAsHeadings) ? $field : $attributes['Comment']);
+		}
+		
+		# Return the headings
+		return $headings;
 	}
 	
 	
@@ -483,23 +526,6 @@ class database
 	}
 	
 	
-	# Function to get field descriptions as a simple associative array
-	function getHeadings ($database, $table, $useFieldnameIfEmpty = true)
-	{
-		# Get the fields
-		$fields = $this->getFields ($database, $table);
-		
-		# Rearrange the data
-		$headings = array ();
-		foreach ($fields as $field => $attributes) {
-			$headings[$field] = ((empty ($attributes['Comment']) && $useFieldnameIfEmpty) ? $field : $attributes['Comment']);
-		}
-		
-		# Return the headings
-		return $headings;
-	}
-	
-	
 	# Function to get table metadata
 	function getTableStatus ($database, $table, $getOnly = false /*array ('Comment')*/)
 	{
@@ -526,10 +552,10 @@ class database
 	
 	
 	# Function to count the number of records
-	function getTotal ($database, $table)
+	function getTotal ($database, $table, $restrictionSql = '')
 	{
 		# Get the total
-		$query = "SELECT count(id) as total FROM {$database}.{$table}";
+		$query = "SELECT count(id) as total FROM {$database}.{$table}" . $restrictionSql;
 		$data = $this->getOne ($query);
 		
 		# Return the value

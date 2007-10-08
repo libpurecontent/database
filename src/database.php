@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.4.3
+ * Version 1.4.4
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -390,7 +390,7 @@ class database
 		
 		# Assemble the values
 		foreach ($data as $key => $value) {
-			$values[] = $this->quote ($value);
+			$values[] = ($value === NULL ? 'NULL' : $this->quote ($value));
 		}
 		$values = implode (',', $values);
 		
@@ -440,7 +440,7 @@ class database
 		
 		# Assemble the pairs
 		foreach ($data as $key => $value) {
-			$updates[] = "`{$key}`=" . $this->quote ($value);
+			$updates[] = "`{$key}`=" . ($value === NULL ? 'NULL' : $this->quote ($value));
 			
 			# Make the condition be that the first item is the key if nothing specified
 			if (!$conditions) {

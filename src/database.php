@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.4.4
+ * Version 1.5.0
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -17,7 +17,7 @@ class database
 	var $query = NULL;
 	
 	# Function to connect to the database
-	function database ($hostname, $username, $password, $database = NULL, $vendor = 'mysql', $logFile = false, $userForLogging = false)
+	function database ($hostname, $username, $password, $database = NULL, $vendor = 'mysql', $logFile = false, $userForLogging = false, $unicode = true)
 	{
 		# Assign the user for logging
 		$this->logFile = $logFile;
@@ -33,6 +33,11 @@ class database
 			$this->connection = new PDO ($dsn, $username, $password);
 		} catch (PDOException $e) {
 			return false;
+		}
+		
+		# Set transfers to UTF-8
+		if ($unicode) {
+			$this->execute ("SET NAMES 'utf8'");
 		}
 	}
 	

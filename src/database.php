@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.5.0
+ * Version 1.5.1
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -102,6 +102,7 @@ class database
 		$data = $this->getData ($this->query, $associative, $keyed);
 		
 		# Ensure that only one item is returned
+		if (count ($data) > 1) {return NULL;}
 		if (count ($data) !== 1) {return false;}
 		
 		# Return the data
@@ -343,8 +344,24 @@ class database
 	}
 	
 	
+	# Function to select the data where only one item will be returned (as per getOne); this function has the same signature as select, except for the default on associative
+	function selectOne ($database, $table, $conditions = array (), $columns = array (), $associative = false, $orderBy = false)
+	{
+		# Get the data
+		$data = $this->select ($database, $table, $conditions, $columns, $associative, $orderBy);
+		
+		# Ensure that only one item is returned
+		if (count ($data) > 1) {return NULL;}
+		if (count ($data) !== 1) {return false;}
+		
+		# Return the data
+		#!# This could be unset if it's associative
+		return $data[0];
+	}
+	
+	
 	# Function to construct and execute a SELECT statement
-	function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false/*, $getOne = false*/)
+	function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false)
 	{
 		# Construct the WHERE clause
 		$where = '';
@@ -385,7 +402,7 @@ class database
 	
 	
 	# Function to construct and execute an INSERT statement
-	function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $safe = false, $showErrors = false)
+	function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
@@ -395,6 +412,7 @@ class database
 		
 		# Assemble the values
 		foreach ($data as $key => $value) {
+			if ($emptyToNull && ($value == '')) {$value = NULL;}	// Convert empty to NULL
 			$values[] = ($value === NULL ? 'NULL' : $this->quote ($value));
 		}
 		$values = implode (',', $values);
@@ -438,14 +456,16 @@ class database
 	
 	
 	# Function to construct and execute an UPDATE statement
-	function update ($database, $table, $data, $conditions = array (), $safe = false)
+	function update ($database, $table, $data, $conditions = array (), $emptyToNull = true, $safe = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
 		
 		# Assemble the pairs
 		foreach ($data as $key => $value) {
-			$updates[] = "`{$key}`=" . ($value === NULL ? 'NULL' : $this->quote ($value));
+			if ($emptyToNull && ($value == '')) {$value = NULL;}	// Convert empty to NULL
+			$useValue = ($value === NULL ? 'NULL' : $this->quote ($value));
+			$updates[] = "`{$key}`=" . $useValue;
 			
 			# Make the condition be that the first item is the key if nothing specified
 			if (!$conditions) {

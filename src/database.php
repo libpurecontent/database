@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.5.1
+ * Version 1.6.0
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -38,6 +38,9 @@ class database
 		# Set transfers to UTF-8
 		if ($unicode) {
 			$this->execute ("SET NAMES 'utf8'");
+			// # The following is a more portable version that could be used instead
+			//$charset = $this->getOne ("SHOW VARIABLES LIKE 'character_set_database';");
+			//$this->execute ("SET NAMES '" . $charset['Value'] . "';");
 		}
 	}
 	
@@ -256,19 +259,19 @@ class database
 	
 	
 	# Function to obtain a list of databases on the server
-	function getDatabases ($removeReserved = true)
+	function getDatabases ($removeReserved = array ('information_schema', 'mysql'))
 	{
 		# Get the data
 		$this->query = "SHOW DATABASES;";
 		$data = $this->getData ($this->query);
 		
-		# Define reserved databases
-		$reserved = array ('information_schema', 'mysql');
+		# Sort the list
+		if ($data) {sort ($data);}
 		
 		# Rearrange
 		$databases = array ();
 		foreach ($data as $index => $attributes) {
-			if ($removeReserved && in_array ($attributes['Database'], $reserved)) {continue;}
+			if ($removeReserved && in_array ($attributes['Database'], $removeReserved)) {continue;}
 			$databases[] = $attributes['Database'];
 		}
 		
@@ -599,6 +602,130 @@ class database
 		
 		# Return the details
 		return $error;
+	}
+	
+	
+	# Define a lookup function used to join fields in the format fieldname__JOIN__targetDatabase__targetTable__reserved
+	#!# Caching mechanism needed for repeated fields (and fieldnames as below), one level higher in the calling structure
+	function lookup ($databaseConnection, $fieldName, $fieldType, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false)
+	{
+		# Determine if it's a special JOIN field
+		$values = array ();
+		$targetDatabase = NULL;
+		$targetTable = NULL;
+		if (eregi ('^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([a-zA-Z0-9]+)__reserved$', $fieldName, $matches)) {
+			
+			# Load required libraries
+			require_once ('application.php');
+			
+			# Assign the new fieldname
+			$fieldName = $matches[1];
+			$targetDatabase = $matches[2];
+			$targetTable = $matches[3];
+			
+			# Get the fields of the target table
+			$fields = $databaseConnection->getFieldNames ($matches[2], $matches[3]);
+			
+			# Deal with ordering
+			$orderbySql = '';
+			if ($orderby) {
+				
+				# Get those fields in the orderby list that exist in the table being linked to
+				$orderby = application::ensureArray ($orderby);
+				$fieldsPresent = array_intersect ($orderby, $fields);
+				
+				# Compile the SQL
+				$orderbySql = ' ORDER BY ' . implode (',', $fieldsPresent);
+			}
+			
+			# Get the data
+			#!# Enable recursive lookups
+			$query = "SELECT * FROM {$targetDatabase}.{$targetTable}{$orderbySql};";
+			if (!$data = $databaseConnection->getData ($query, "{$targetDatabase}.{$targetTable}")) {
+				return array ($fieldName, array (), $targetDatabase, $targetTable);
+			}
+			
+			# Sort
+			#!# Surely this has no effect as there are no values so far?
+			if ($sort) {ksort ($values);}
+			
+			# Determine whether to show keys (defaults to showing keys if the field is numeric)
+			$showKey = ($showKeys === NULL ? (!strstr ($fieldType, 'int(')) : $showKeys);
+			
+			# Deal with grouping if required
+			$grouped = false;
+			if ($group) {
+				
+				# Determine the field to attempt to use, either a supplied fieldname or the second (first non-key) field. If the group 'name' supplied is a number, treat as an index (e.g. second key name)
+				$groupField = (($group === true || is_numeric ($group)) ? application::arrayKeyName ($data, (is_numeric ($group) ? $group : 2), true) : $group);
+				
+				# Confirm existence of that field
+				if ($groupField && in_array ($groupField, $fields)) {
+					
+					# Find if any group field values are unique; if so, regroup the whole dataset; if not, don't regroup
+					$groupValues = array ();
+					foreach ($data as $key => $rowData) {
+						$groupFieldValue = $rowData[$groupField];
+						if (!in_array ($groupFieldValue, $groupValues)) {
+							$groupValues[$key] = $groupFieldValue;
+						} else {
+							
+							# Regroup the data and flag this
+							$data = application::regroup ($data, $groupField, false);
+							$grouped = true;
+							break;
+						}
+					}
+				}
+			}
+			
+			# Convert the data into a single key/value pair, removing repetition of the key if required
+			if ($grouped) {
+				foreach ($data as $groupKey => $groupData) {
+					foreach ($groupData as $key => $rowData) {
+						#!# This assumes the key is the first ...
+						array_shift ($rowData);
+						/*
+						unset ($rowData[$groupField]);
+						if (application::allArrayElementsEmpty ($rowData)) {
+							array_unshift ($rowData, "{{$groupKey}}");
+						}
+						*/
+						$values[$groupKey][$key]  = ($showKey ? "{$key}: " : '');
+						$set = array_values ($rowData);
+						$values[$groupKey][$key] .= ($firstOnly ? $set[0] : implode (' - ', $set));
+					}
+				}
+			} else {
+				foreach ($data as $key => $rowData) {
+					#!# This assumes the key is the first ...
+					array_shift ($rowData);
+					$values[$key]  = ($showKey ? "{$key}: " : '');
+					$set = array_values ($rowData);
+					$values[$key] .= ($firstOnly ? $set[0] : implode (' - ', $set));
+				}
+			}
+		}
+		
+		# Return the field name and the lookup values
+		return array ($fieldName, $values, $targetDatabase, $targetTable);
+	}
+	
+	
+	# Function to convert joins
+	function convertJoin ($fieldname)
+	{
+		# Return if matched
+		if (ereg ('^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([a-zA-Z0-9]+)__reserved$', $fieldname, $matches)) {
+			return array (
+				'field' => $matches[1],
+				'database' => $matches[2],
+				'table' => $matches[3],
+			);
+		}
+		
+		# Otherwise return false;
+		return false;
 	}
 }
 

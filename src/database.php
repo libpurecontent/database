@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.6.0
+ * Version 1.6.1
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -195,6 +195,18 @@ class database
 	
 	
 	# Function to get fields
+	function getTotalRecords ($database, $table)
+	{
+		# Get the data
+		$this->query = "SELECT COUNT(*) AS total FROM {$database}.{$table};";
+		$data = $this->getOne ($this->query);
+		
+		# Return the result
+		return $data['total'];
+	}
+	
+	
+	# Function to get fields
 	function getFields ($database, $table)
 	{
 		# Get the data
@@ -259,7 +271,7 @@ class database
 	
 	
 	# Function to obtain a list of databases on the server
-	function getDatabases ($removeReserved = array ('information_schema', 'mysql'))
+	function getDatabases ($removeReserved = array ('cluster', 'information_schema', 'mysql'))
 	{
 		# Get the data
 		$this->query = "SHOW DATABASES;";
@@ -613,7 +625,7 @@ class database
 		$values = array ();
 		$targetDatabase = NULL;
 		$targetTable = NULL;
-		if (eregi ('^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([a-zA-Z0-9]+)__reserved$', $fieldName, $matches)) {
+		if (eregi ('^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([-_a-zA-Z0-9]+)__reserved$', $fieldName, $matches)) {
 			
 			# Load required libraries
 			require_once ('application.php');

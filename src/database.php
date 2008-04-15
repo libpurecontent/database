@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.6.1
+ * Version 1.6.2
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -339,7 +339,7 @@ class database
 	
 	
 	# Function to deal with quotation, i.e. escaping AND adding quotation marks around the item
-	function quote ($data)
+	/* private */ function quote ($data)
 	{
 		# Strip slashes if necessary
 		if (get_magic_quotes_gpc ()) {
@@ -383,7 +383,7 @@ class database
 		if ($conditions) {
 			$where = array ();
 			foreach ($conditions as $key => $value) {
-				$where[] = $key . "=" . $this->quote ($value);
+				$where[] = $key . '=' . $this->quote ($value);
 			}
 			$where = ' WHERE ' . implode (' AND ', $where);
 		}
@@ -520,13 +520,19 @@ class database
 	
 	
 	# Function to log a change
+	#!# Ideally have some way to throw an error if the logfile is not writable
 	function logChange ($query, $result)
 	{
 		# End if logging disabled
 		if (!$this->logFile) {return false;}
 		
-		# End if file is not writable
-		if (!is_writable ($this->logFile)) {return false;}
+		# End if the file is not writable, or the containing directory is not if the file does not exist
+		if (file_exists ($this->logFile)) {
+			if (!is_writable ($this->logFile)) {return false;}
+		} else {
+			$directory = dirname ($this->logFile);
+			if (!is_writable ($directory)) {return false;}
+		}
 		
 		# Create the log entry
 		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d H:i:s') . ' by ' . $this->userForLogging . ' */ ' . str_replace ("\r\n", '\\r\\n', $query);

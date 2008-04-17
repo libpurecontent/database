@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.6.2
+ * Version 1.6.3
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -664,8 +664,7 @@ class database
 			}
 			
 			# Sort
-			#!# Surely this has no effect as there are no values so far?
-			if ($sort) {ksort ($values);}
+			if ($sort) {ksort ($data);}
 			
 			# Determine whether to show keys (defaults to showing keys if the field is numeric)
 			$showKey = ($showKeys === NULL ? (!strstr ($fieldType, 'int(')) : $showKeys);

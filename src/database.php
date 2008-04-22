@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.6.3
+ * Version 1.6.4
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -371,6 +371,7 @@ class database
 		
 		# Return the data
 		#!# This could be unset if it's associative
+		#!# http://bugs.mysql.com/36824 could result in a value slipping through that is not strictly matched
 		return $data[0];
 	}
 	
@@ -625,24 +626,24 @@ class database
 	
 	# Define a lookup function used to join fields in the format fieldname__JOIN__targetDatabase__targetTable__reserved
 	#!# Caching mechanism needed for repeated fields (and fieldnames as below), one level higher in the calling structure
-	function lookup ($databaseConnection, $fieldName, $fieldType, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false)
+	function lookup ($databaseConnection, $fieldname, $fieldType, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false)
 	{
 		# Determine if it's a special JOIN field
 		$values = array ();
 		$targetDatabase = NULL;
 		$targetTable = NULL;
-		if (eregi ('^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([-_a-zA-Z0-9]+)__reserved$', $fieldName, $matches)) {
+		if ($matches = database::convertJoin ($fieldname)) {
 			
 			# Load required libraries
 			require_once ('application.php');
 			
 			# Assign the new fieldname
-			$fieldName = $matches[1];
-			$targetDatabase = $matches[2];
-			$targetTable = $matches[3];
+			$fieldname = $matches['field'];
+			$targetDatabase = $matches['database'];
+			$targetTable = $matches['table'];
 			
 			# Get the fields of the target table
-			$fields = $databaseConnection->getFieldNames ($matches[2], $matches[3]);
+			$fields = $databaseConnection->getFieldNames ($targetDatabase, $targetTable);
 			
 			# Deal with ordering
 			$orderbySql = '';
@@ -660,7 +661,7 @@ class database
 			#!# Enable recursive lookups
 			$query = "SELECT * FROM {$targetDatabase}.{$targetTable}{$orderbySql};";
 			if (!$data = $databaseConnection->getData ($query, "{$targetDatabase}.{$targetTable}")) {
-				return array ($fieldName, array (), $targetDatabase, $targetTable);
+				return array ($fieldname, array (), $targetDatabase, $targetTable);
 			}
 			
 			# Sort
@@ -725,7 +726,7 @@ class database
 		}
 		
 		# Return the field name and the lookup values
-		return array ($fieldName, $values, $targetDatabase, $targetTable);
+		return array ($fieldname, $values, $targetDatabase, $targetTable);
 	}
 	
 	
@@ -733,7 +734,7 @@ class database
 	function convertJoin ($fieldname)
 	{
 		# Return if matched
-		if (ereg ('^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([a-zA-Z0-9]+)__reserved$', $fieldname, $matches)) {
+		if (ereg ('^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([-_a-zA-Z0-9]+)__reserved$', $fieldname, $matches)) {
 			return array (
 				'field' => $matches[1],
 				'database' => $matches[2],

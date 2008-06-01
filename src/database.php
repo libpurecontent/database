@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.6.4
+ * Version 1.6.5
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -140,7 +140,7 @@ class database
 	}
 	
 	
-	# Function to get data from an SQL query and return it as an array
+	# Function to get data from an SQL query and return it as an array; $associative should be false or a string "$database.$table" (which reindexes the data to the field containing the unique key)
 	function getData ($query, $associative = false, $keyed = true)
 	{
 		# Global the query
@@ -194,14 +194,14 @@ class database
 	}
 	
 	
-	# Function to get fields
-	function getTotalRecords ($database, $table)
+	# Function to count the number of records
+	function getTotal ($database, $table, $restrictionSql = '')
 	{
-		# Get the data
-		$this->query = "SELECT COUNT(*) AS total FROM {$database}.{$table};";
+		# Get the total
+		$this->query = "SELECT COUNT(*) AS total FROM {$database}.{$table} " . $restrictionSql . ';';
 		$data = $this->getOne ($this->query);
 		
-		# Return the result
+		# Return the value
 		return $data['total'];
 	}
 	
@@ -598,23 +598,15 @@ class database
 	}
 	
 	
-	# Function to count the number of records
-	function getTotal ($database, $table, $restrictionSql = '')
-	{
-		# Get the total
-		$query = "SELECT count(id) as total FROM {$database}.{$table}" . $restrictionSql;
-		$data = $this->getOne ($query);
-		
-		# Return the value
-		return $data['total'];
-	}
-	
-	
 	# Function to get error information
 	function error ()
 	{
 		# Get the error details
-		$error = $this->connection->errorInfo ();
+		if ($this->connection) {
+			$error = $this->connection->errorInfo ();
+		} else {
+			$error = 'No database connection available';
+		}
 		
 		# Add in the SQL statement
 		$error['query'] = $this->query;

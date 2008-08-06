@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.6.5
+ * Version 1.6.6
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -561,6 +561,31 @@ class database
 		
 		# Assemble the query
 		$this->query = "DELETE FROM {$database}.{$table}{$where};\n";
+		
+		# Execute the query
+		$result = $this->execute ($this->query);
+		
+		# Log the change
+		$this->logChange ($this->query, $result);
+		
+		# Return whether the operation failed or succeeded
+		return $result;
+	}
+	
+	
+	# Function to delete a set of ids
+	function deleteIds ($database, $table, $list, $field = 'id')
+	{
+		# End if no items
+		if (!$list || !is_array ($list)) {return false;}
+		
+		# Apply escaping; see comment in http://dev.mysql.com/doc/refman/5.0/en/regexp.html stating that preg_quote seems to work
+		foreach ($list as $index => $item) {
+			$list[$index] = addslashes (preg_quote ($item));
+		}
+		
+		# Assemble the query
+		$this->query = "DELETE FROM `{$database}`.`{$table}` WHERE `{$field}` REGEXP '^(" . implode ('|', $list) . ")$';\n";
 		
 		# Execute the query
 		$result = $this->execute ($this->query);

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.6.6
+ * Version 1.6.7
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -114,20 +114,24 @@ class database
 	}
 	
 	
-	# Function to get the data where only one column per item will be returned
-	function getPairs ($query, $associative = false, $keyed = true, $trimAndUnique = true)
+	# Function to get the data where either (i) only one column per item will be returned, resulting in index => value, or (ii) two columns are returned, resulting in col1 => col2
+	function getPairs ($query, $trimAndUnique = true)
 	{
 		# Global the query
 		$this->query = $query;
 		
 		# Get the data
-		$data = $this->getData ($this->query, $associative, $keyed);
+		$data = $this->getData ($this->query, false, $keyed = false);
 		
 		# Arrange the data into key/value pairs
 		$pairs = array ();
 		foreach ($data as $key => $item) {
-			foreach ($item as $value) {
-				$pairs[$key] = ($trimAndUnique ? trim ($value) : $value);
+			foreach ($item as $field => $value) {
+				if (count ($item) == 1) {
+					$pairs[$key] = ($trimAndUnique ? trim ($value) : $value);
+				} else {
+					$pairs[$item[0]] = ($trimAndUnique ? trim ($item[1]) : $item[1]);
+				}
 				break;
 			}
 		}

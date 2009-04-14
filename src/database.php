@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.6.8
+ * Version 1.6.9
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -202,7 +202,7 @@ class database
 	function getTotal ($database, $table, $restrictionSql = '')
 	{
 		# Get the total
-		$this->query = "SELECT COUNT(*) AS total FROM {$database}.{$table} " . $restrictionSql . ';';
+		$this->query = "SELECT COUNT(*) AS total FROM `{$database}`.`{$table}` " . $restrictionSql . ';';
 		$data = $this->getOne ($this->query);
 		
 		# Return the value
@@ -214,7 +214,7 @@ class database
 	function getFields ($database, $table)
 	{
 		# Get the data
-		$this->query = "SHOW FULL FIELDS FROM {$database}.{$table};";
+		$this->query = "SHOW FULL FIELDS FROM `{$database}`.`{$table}`;";
 		$data = $this->getData ($this->query);
 		
 		# Convert the field name to be the key name
@@ -456,7 +456,7 @@ class database
 		}
 		
 		# Assemble the query
-		$this->query = "INSERT INTO {$database}.{$table} ({$fields}) VALUES ({$values}){$onDuplicateKeyUpdate};\n";
+		$this->query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES ({$values}){$onDuplicateKeyUpdate};\n";
 		
 		# In safe mode, only show the query
 		if ($safe) {
@@ -505,7 +505,7 @@ class database
 		$where = implode (' AND ', $where);
 		
 		# Assemble the query
-		$this->query = "UPDATE {$database}.{$table} SET {$updates} WHERE {$where};\n";
+		$this->query = "UPDATE `{$database}`.`{$table}` SET {$updates} WHERE {$where};\n";
 		
 		# In safe mode, only show the query
 		if ($safe) {
@@ -567,7 +567,7 @@ class database
 		}
 		
 		# Assemble the query
-		$this->query = "DELETE FROM {$database}.{$table}{$where};\n";
+		$this->query = "DELETE FROM `{$database}`.`{$table}`{$where};\n";
 		
 		# Execute the query
 		$result = $this->execute ($this->query);

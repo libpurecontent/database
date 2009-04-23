@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-6
- * Version 1.6.9
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
+ * Version 1.6.10
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -551,7 +551,7 @@ class database
 	
 	
 	# Function to delete data
-	function delete ($database, $table, $conditions)
+	function delete ($database, $table, $conditions, $limit = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($conditions) || !$conditions) {return false;}
@@ -566,8 +566,11 @@ class database
 			$where = ' WHERE ' . implode (' AND ', $where);
 		}
 		
+		# Determine any limit
+		$limit = ($limit ? " LIMIT {$limit}" : '');
+		
 		# Assemble the query
-		$this->query = "DELETE FROM `{$database}`.`{$table}`{$where};\n";
+		$this->query = "DELETE FROM `{$database}`.`{$table}`{$where}{$limit};\n";
 		
 		# Execute the query
 		$result = $this->execute ($this->query);

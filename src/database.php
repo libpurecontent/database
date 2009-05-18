@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.10
+ * Version 1.6.11
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -201,8 +201,12 @@ class database
 	# Function to count the number of records
 	function getTotal ($database, $table, $restrictionSql = '')
 	{
+		# Check that the table exists
+		$tables = $this->getTables ($database);
+		if (!in_array ($table, $tables)) {return false;}
+		
 		# Get the total
-		$this->query = "SELECT COUNT(*) AS total FROM `{$database}`.`{$table}` " . $restrictionSql . ';';
+		$this->query = "SELECT COUNT(*) AS total FROM `{$database}`.`{$table}` {$restrictionSql};";
 		$data = $this->getOne ($this->query);
 		
 		# Return the value
@@ -300,7 +304,7 @@ class database
 	function getTables ($database)
 	{
 		# Get the data
-		$this->query = "SHOW TABLES FROM {$database};";
+		$this->query = "SHOW TABLES FROM `{$database}`;";
 		$data = $this->getData ($this->query);
 		
 		# Rearrange

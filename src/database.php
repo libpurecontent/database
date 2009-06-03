@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.11
+ * Version 1.6.13
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -644,7 +644,7 @@ class database
 		if ($this->connection) {
 			$error = $this->connection->errorInfo ();
 		} else {
-			$error = 'No database connection available';
+			$error = array ('error' => 'No database connection available');
 		}
 		
 		# Add in the SQL statement

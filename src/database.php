@@ -482,6 +482,78 @@ class database
 	}
 	
 	
+	# Function to construct and execute an INSERT statement containing many items
+	function insertMany ($database, $table, $dataSet, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false)
+	{
+		# ON DUPLICATE KEY UPDATE is not available in this interface (though has been left in the argument list for API consistency)
+		if ($onDuplicateKeyUpdate) {return false;}
+		
+		# Ensure the data is an array and that there is data
+		if (!is_array ($dataSet) || !$dataSet) {return false;}
+		
+		# Loop through each set of data
+		foreach ($dataSet as $index => $data) {
+			
+			# Ensure the data is an array and that there is data
+			if (!is_array ($data) || !$data) {return false;}
+			
+			# Get the field names
+			$fields = array_keys ($data);
+			
+			# Cache the previous field names and check for consistency, returning false if a different set of field names is found
+			if (isSet ($cachedFieldList)) {
+				if ($fields !== $cachedFieldList) {	// Enforce field list (including order) consistency across every record
+					return false;
+				}
+			}
+			$cachedFieldList = $fields;
+			
+			# Assemble the field names
+			$fields = '`' . implode ('`,`', $fields) . '`';
+			
+			# Assemble the values
+			$values = array ();
+			foreach ($data as $key => $value) {
+				if ($emptyToNull && ($value == '')) {$value = NULL;}	// Convert empty to NULL
+				$values[] = ($value === NULL ? 'NULL' : $this->quote ($value));
+			}
+			$valuesSet[$index] = implode (',', $values);
+		}
+		
+		# Assemble the query
+		$query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES (" . implode ('),(', $valuesSet) . ");\n";
+		
+		# Prevent submission of over-long queries
+		$maxLength = $this->getOne ("SHOW VARIABLES LIKE 'max_allowed_packet'");
+		if (isSet ($maxLength['Value'])) {
+			if (strlen ($query) > (int) $maxLength['Value']) {
+				return false;
+			}
+		}
+		
+		# Assign the global query value; this is done after the getOne query to avoid reallocation
+		$this->query = $query;
+		
+		# In safe mode, only show the query
+		if ($safe) {
+			echo $this->query . "<br />";
+			return true;
+		}
+		
+		# Execute the query
+		$rows = $this->execute ($this->query, $showErrors);
+		
+		# Determine the result
+		$result = ($rows !== false);
+		
+		# Log the change
+		$this->logChange ($this->query, $result);
+		
+		# Return the result
+		return $result;
+	}
+	
+	
 	# Function to construct and execute an UPDATE statement
 	function update ($database, $table, $data, $conditions = array (), $emptyToNull = true, $safe = false)
 	{

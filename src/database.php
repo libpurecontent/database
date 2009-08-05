@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.13
+ * Version 1.6.14
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -108,9 +108,10 @@ class database
 		if (count ($data) > 1) {return NULL;}
 		if (count ($data) !== 1) {return false;}
 		
-		# Return the data
-		#!# This could be unset if it's associative
-		return $data[0];
+		# Return the data, taking the first item; $data[0] would fail when using $associative
+		foreach ($data as $keyOrIndex => $item) {
+			return $item;
+		}
 	}
 	
 	

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.14
+ * Version 1.6.1
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -216,7 +216,7 @@ class database
 	
 	
 	# Function to get fields
-	function getFields ($database, $table)
+	function getFields ($database, $table, $addSimpleType = false)
 	{
 		# Get the data
 		$this->query = "SHOW FULL FIELDS FROM `{$database}`.`{$table}`;";
@@ -228,8 +228,35 @@ class database
 			$fields[$attributes['Field']] = $attributes;
 		}
 		
+		# Add a simple type description if required
+		if ($addSimpleType) {
+			foreach ($data as $key => $attributes) {
+				$fields[$attributes['Field']]['_type'] = $this->simpleType ($attributes['Type']);
+			}
+		}
+		
 		# Return the result
 		return $fields;
+	}
+	
+	
+	# Function to create a simple type for fields
+	private function simpleType ($type)
+	{
+		# Detect the type and give a simplified description of it
+		switch (true) {
+			case preg_match ('~^varchar~', $type):
+				return 'string';
+			case preg_match ('~text~', $type):
+				return 'text';
+			case preg_match ('~^(float|int)~', $type):
+				return 'numeric';
+			case preg_match ('~^(enum|set)~', $type):
+				return 'list';
+		}
+		
+		# Otherwise pass through the original
+		return $type;
 	}
 	
 	

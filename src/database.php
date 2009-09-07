@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.1
+ * Version 1.6.16
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -26,6 +26,15 @@ class database
 		# Make attributes available for querying by calling applications
 		$this->hostname = $hostname;
 		$this->vendor = $vendor;
+		
+		# Convert localhost to 127.0.0.1 on PHP 5.3.x on Windows (Vista); see http://bugs.php.net/45150
+		if ($hostname == 'localhost') {
+			if (substr (PHP_OS, 0, 3) == 'WIN') {
+				if (version_compare (PHP_VERSION, '5.3.0', '>=')) {
+					$hostname = '127.0.0.1';
+				}
+			}
+		}
 		
 		# Connect to the database and return the status
 		$dsn = "{$vendor}:host={$hostname}" . ($database ? ";dbname={$database}" : '');

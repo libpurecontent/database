@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.16
+ * Version 1.6.17
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -718,6 +718,26 @@ class database
 		
 		# Return whether the operation failed or succeeded
 		return $result;
+	}
+	
+	
+	# Function to create a table from a list of fields
+	function createTable ($database, $table, $fields, $ifNotExists = true)
+	{
+		# Construct the list of fields
+		$fieldsSql = array ();
+		foreach ($fields as $fieldname => $specification) {
+			$fieldsSql[] = "{$fieldname} {$specification}";
+		}
+		
+		# Compile the overall SQL; type is deliberately set to InnoDB so that rows are physically stored in the unique key order
+		$query = 'CREATE TABLE' . ($ifNotExists ? ' IF NOT EXISTS' : '') . " `{$database}`.`{$table}` (" . implode (', ', $fieldsSql) . ") TYPE=InnoDB CHARACTER SET utf8 COLLATE utf8_unicode_ci;";
+		
+		# Create the table
+		if (false === $this->execute ($query)) {return false;}
+		
+		# Signal success
+		return true;
 	}
 	
 	

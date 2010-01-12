@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.17
+ * Version 1.6.18
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -27,12 +27,15 @@ class database
 		$this->hostname = $hostname;
 		$this->vendor = $vendor;
 		
-		# Convert localhost to 127.0.0.1 on PHP 5.3.x on Windows (Vista); see http://bugs.php.net/45150
+		# Convert localhost to 127.0.0.1
 		if ($hostname == 'localhost') {
-			if (substr (PHP_OS, 0, 3) == 'WIN') {
-				if (version_compare (PHP_VERSION, '5.3.0', '>=')) {
+			if (version_compare (PHP_VERSION, '5.3.0', '>=')) {
+				/* # Previously believed only to affect Windows Vista, but not the case. On PHP 5.3.x on Windows (Vista) see http://bugs.php.net/45150
+				if (substr (PHP_OS, 0, 3) == 'WIN') {
 					$hostname = '127.0.0.1';
 				}
+				*/
+				$hostname = '127.0.0.1';
 			}
 		}
 		
@@ -41,6 +44,7 @@ class database
 		try {
 			$this->connection = new PDO ($dsn, $username, $password);
 		} catch (PDOException $e) {
+			// error_log ("{$dsn}, {$username}, {$password}");
 			return false;
 		}
 		

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.18
+ * Version 1.6.19
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -790,7 +790,7 @@ class database
 	
 	# Define a lookup function used to join fields in the format fieldname__JOIN__targetDatabase__targetTable__reserved
 	#!# Caching mechanism needed for repeated fields (and fieldnames as below), one level higher in the calling structure
-	function lookup ($databaseConnection, $fieldname, $fieldType, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false)
+	function lookup ($databaseConnection, $fieldname, $fieldType, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array ())
 	{
 		# Determine if it's a special JOIN field
 		$values = array ();
@@ -865,6 +865,7 @@ class database
 			if ($grouped) {
 				foreach ($data as $groupKey => $groupData) {
 					foreach ($groupData as $key => $rowData) {
+						#!# Duplicated code in these two sections
 						#!# This assumes the key is the first ...
 						array_shift ($rowData);
 						/*
@@ -874,16 +875,27 @@ class database
 						}
 						*/
 						$values[$groupKey][$key]  = ($showKey ? "{$key}: " : '');
-						$set = array_values ($rowData);
+						$useFields = $rowData;
+						if ($showFields) {
+							require_once ('application.php');
+							$useFields = application::arrayFields ($rowData, $showFields);	// Filters down to the $showFields fields only
+						}
+						$set = array_values ($useFields);
 						$values[$groupKey][$key] .= ($firstOnly ? $set[0] : implode (' - ', $set));
 					}
 				}
 			} else {
 				foreach ($data as $key => $rowData) {
+//					application::dumpData ($rowData);
 					#!# This assumes the key is the first ...
 					array_shift ($rowData);
 					$values[$key]  = ($showKey ? "{$key}: " : '');
-					$set = array_values ($rowData);
+					$useFields = $rowData;
+					if ($showFields) {
+						require_once ('application.php');
+						$useFields = application::arrayFields ($rowData, $showFields);	// Filters down to the $showFields fields only
+					}
+					$set = array_values ($useFields);
 					$values[$key] .= ($firstOnly ? $set[0] : implode (' - ', $set));
 				}
 			}

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.19
+ * Version 1.6.20
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -411,23 +411,6 @@ class database
 	}
 	
 	
-	# Function to select the data where only one item will be returned (as per getOne); this function has the same signature as select, except for the default on associative
-	function selectOne ($database, $table, $conditions = array (), $columns = array (), $associative = false, $orderBy = false)
-	{
-		# Get the data
-		$data = $this->select ($database, $table, $conditions, $columns, $associative, $orderBy);
-		
-		# Ensure that only one item is returned
-		if (count ($data) > 1) {return NULL;}
-		if (count ($data) !== 1) {return false;}
-		
-		# Return the data
-		#!# This could be unset if it's associative
-		#!# http://bugs.mysql.com/36824 could result in a value slipping through that is not strictly matched
-		return $data[0];
-	}
-	
-	
 	# Function to construct and execute a SELECT statement
 	function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false)
 	{
@@ -436,7 +419,7 @@ class database
 		if ($conditions) {
 			$where = array ();
 			foreach ($conditions as $key => $value) {
-				$where[] = $key . '=' . $this->quote ($value);
+				$where[] = '`' . $key . '`' . '=' . $this->quote ($value);
 			}
 			$where = ' WHERE ' . implode (' AND ', $where);
 		}
@@ -466,6 +449,23 @@ class database
 		
 		# Return the data
 		return $data;
+	}
+	
+	
+	# Function to select the data where only one item will be returned (as per getOne); this function has the same signature as select, except for the default on associative
+	function selectOne ($database, $table, $conditions = array (), $columns = array (), $associative = false, $orderBy = false)
+	{
+		# Get the data
+		$data = $this->select ($database, $table, $conditions, $columns, $associative, $orderBy);
+		
+		# Ensure that only one item is returned
+		if (count ($data) > 1) {return NULL;}
+		if (count ($data) !== 1) {return false;}
+		
+		# Return the data
+		#!# This could be unset if it's associative
+		#!# http://bugs.mysql.com/36824 could result in a value slipping through that is not strictly matched
+		return $data[0];
 	}
 	
 	

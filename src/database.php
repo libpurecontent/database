@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.20
+ * Version 1.6.21
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -466,6 +466,23 @@ class database
 		#!# This could be unset if it's associative
 		#!# http://bugs.mysql.com/36824 could result in a value slipping through that is not strictly matched
 		return $data[0];
+	}
+	
+	
+	# Function to construct and execute a SELECT statement
+	function selectCsv ($filenameBase, $database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false)
+	{
+		# Pass the data straight through
+		$data = $this->select ($database, $table, $conditions, $columns, $associative, $orderBy);
+		
+		# Convert to CSV
+		require_once ('csv.php');
+		$csv = csv::dataToCsv ($data);
+		
+		# Publish, by sending a header and then echoing the data
+		header ('Content-type: application/octet-stream');
+		header ('Content-Disposition: attachment; filename="' . $filenameBase . '.csv"');
+		echo $csv;
 	}
 	
 	

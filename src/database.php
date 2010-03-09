@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.21
+ * Version 1.6.22
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -937,6 +937,42 @@ class database
 		
 		# Otherwise return false;
 		return false;
+	}
+	
+	
+	# Function to notify the admin of a connection error
+	public function reportError ($administratorEmail, $applicationName)
+	{
+		# Tell the user
+		$html = "\n<p class=\"warning\">Error: This facility is temporarily unavailable. Please check back shortly. The administrator has been notified of this problem.</p>";
+		
+		# If there is not a flag file, write one, then report the error by e-mail
+		if (!file_exists ('./errornotifiedflagfile')) {
+			
+			# Define an error message
+			$errorMessage  = 'A database connection could not be established.';
+			
+			# Attempt to write the notification file
+			if (is_writable ('./')) {
+				umask (002);
+				$file = getcwd () . '/' . 'errornotifiedflagfile';
+				file_put_contents ($file, date ('r'));
+				$errorMessage .= "\n\nWhen the error has been corrected, you must delete the error notification flag file at\n{$file}";
+			} else {
+				$errorMessage .= "\n\nAdditionally, an errornotifiedflagfile could not be written, so further e-mails like this will continue.";
+			}
+			
+			# Add the URL
+			require_once ('application.php');
+			$errorMessage .= "\n\n\n---\nGenerated at URL: {$_SERVER['_PAGE_URL']}";
+			
+			# Mail the admin
+			$mailheaders = "From: {$applicationName} <" . $administratorEmail . ">\n";
+			application::utf8Mail ($administratorEmail, 'Database connection error: ' . $applicationName, wordwrap ($errorMessage), $mailheaders);
+		}
+		
+		# Return the HTML
+		return $html;
 	}
 }
 

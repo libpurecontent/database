@@ -1,8 +1,9 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-9
- * Version 1.6.22
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-10
+ * Version 2.0.0
+ * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
@@ -13,8 +14,11 @@
 class database
 {
 	# Global class variables
-	var $connection = NULL;
-	var $query = NULL;
+	public $connection = NULL;
+	private $preparedStatement = NULL;
+	private $query = NULL;
+	private $queryValues = NULL;
+	
 	
 	# Function to connect to the database
 	function database ($hostname, $username, $password, $database = NULL, $vendor = 'mysql', $logFile = false, $userForLogging = false, $unicode = true)
@@ -30,12 +34,10 @@ class database
 		# Convert localhost to 127.0.0.1
 		if ($hostname == 'localhost') {
 			if (version_compare (PHP_VERSION, '5.3.0', '>=')) {
-				/* # Previously believed only to affect Windows Vista, but not the case. On PHP 5.3.x on Windows (Vista) see http://bugs.php.net/45150
-				if (substr (PHP_OS, 0, 3) == 'WIN') {
+				// Previously believed only to affect Windows Vista, but not the case. On PHP 5.3.x on Windows (Vista) see http://bugs.php.net/45150
+				// if (substr (PHP_OS, 0, 3) == 'WIN') {
 					$hostname = '127.0.0.1';
-				}
-				*/
-				$hostname = '127.0.0.1';
+				// }
 			}
 		}
 		
@@ -59,7 +61,7 @@ class database
 	
 	
 	# Function to disconnect from the database
-	function close ()
+	public function close ()
 	{
 		# Close the connection
 		$this->connection = NULL;
@@ -67,55 +69,69 @@ class database
 	
 	
 	# Function to execute a generic SQL query
-	function query ($query)
+	public function query ($query, $preparedStatementValues = array (), $debug = false)
 	{
-		# Global the query
-		$this->query = $query;
-		
-		# Connect to the database and return the status
-		try {
-			$this->connection->query ($this->query);
-		} catch (PDOException $e) {
-			return false;
-		}
-		
-		# Return success
-  		return true;
+		return $this->queryOrExecute (__FUNCTION__, $query, $preparedStatementValues, $debug);
 	}
 	
 	
 	# Function to execute a generic SQL query
-	function execute ($query, $debug = false)
+	public function execute ($query, $preparedStatementValues = array (), $debug = false)
 	{
-		# Global the query
+		return $this->queryOrExecute (__FUNCTION__, $query, $preparedStatementValues, $debug);
+	}
+	
+	
+	# Function used by both query and execute
+	private function queryOrExecute ($mode, $query, $preparedStatementValues = array (), $debug = false)
+	{
+		# Global the query and any values
 		$this->query = $query;
+		$this->queryValues = $preparedStatementValues;
 		
 		# Show the query if debugging
+		#!# Deprecate this
 		if ($debug) {
-			echo $this->query . "<br />";
+			echo $query . "<br />";
 		}
 		
-		# Connect to the database and return the status
-		try {
-			$rows = $this->connection->exec ($this->query);
-		} catch (PDOException $e) {
-			if ($debug) {echo $e;}
-			return false;
+		# If using prepared statements, prepare then execute
+		if ($preparedStatementValues) {
+			
+			# Execute the statement (ending if there is an error in the query or parameters)
+			$this->preparedStatement = $this->connection->prepare ($query);
+			if (!$result = $this->preparedStatement->execute ($preparedStatementValues)) {
+				return false;
+			}
+			
+			# In execute mode, get the number of affected rows
+			if ($mode == 'execute') {
+				$result = $this->preparedStatement->rowCount ();
+			}
+			
+		} else {
+			
+			# Execute the query and get the number of affected rows
+			$function = ($mode == 'query' ? 'query' : 'exec');
+			try {
+				$result = $this->connection->$function ($query);
+			} catch (PDOException $e) {
+				if ($debug) {echo $e;}
+				return false;
+			}
 		}
 		
-		# Return the number of affected rows
-  		return $rows;
+		# Return the result (either boolean, or the number of affected rows)
+  		return $result;
 	}
 	
 	
 	# Function to get the data where only one item will be returned; this function has the same signature as getData
-	function getOne ($query, $associative = false, $keyed = true)
+	# Uses prepared statement approach if a fourth parameter providing the placeholder values is supplied
+	public function getOne ($query, $associative = false, $keyed = true, $preparedStatementValues = array ())
 	{
-		# Global the query
-		$this->query = $query;
-		
 		# Get the data
-		$data = $this->getData ($this->query, $associative, $keyed);
+		$data = $this->getData ($query, $associative, $keyed, $preparedStatementValues);
 		
 		# Ensure that only one item is returned
 		if (count ($data) > 1) {return NULL;}
@@ -129,13 +145,11 @@ class database
 	
 	
 	# Function to get the data where either (i) only one column per item will be returned, resulting in index => value, or (ii) two columns are returned, resulting in col1 => col2
-	function getPairs ($query, $trimAndUnique = true)
+	# Uses prepared statement approach if a third parameter providing the placeholder values is supplied
+	public function getPairs ($query, $trimAndUnique = true, $preparedStatementValues = array ())
 	{
-		# Global the query
-		$this->query = $query;
-		
 		# Get the data
-		$data = $this->getData ($this->query, false, $keyed = false);
+		$data = $this->getData ($query, false, $keyed = false, $preparedStatementValues);
 		
 		# Arrange the data into key/value pairs
 		$pairs = array ();
@@ -158,30 +172,47 @@ class database
 	}
 	
 	
-	# Function to get data from an SQL query and return it as an array; $associative should be false or a string "$database.$table" (which reindexes the data to the field containing the unique key)
-	function getData ($query, $associative = false, $keyed = true)
+	# Function to get data from an SQL query and return it as an array; $associative should be false or a string "{$database}.{$table}" (which reindexes the data to the field containing the unique key)
+	# Uses prepared statement approach if a fourth parameter providing the placeholder values is supplied
+	public function getData ($query, $associative = false, $keyed = true, $preparedStatementValues = array ())
 	{
-		# Global the query
+		# Global the query and any values
 		$this->query = $query;
+		$this->queryValues = $preparedStatementValues;
 		
 		# Create an empty array to hold the data
 		$data = array ();
 		
-		# Assign the query
-		if (!$statement = $this->connection->query ($this->query)) {
-			return $data;
-		}
-		
 		# Set fetch mode
 		$mode = ($keyed ? PDO::FETCH_ASSOC : PDO::FETCH_NUM);
-		$statement->setFetchMode ($mode);
 		
-		# Loop through each row and add the data to it
-		while ($row = $statement->fetch ()) {
-			$data[] = $row;
+		# If using prepared statements, prepare then execute
+		if ($preparedStatementValues) {
+			
+			# Execute the statement (ending if there is an error in the query or parameters)
+			$this->preparedStatement = $this->connection->prepare ($query);
+			#!# This sometimes gives off warnings - would be good to catch these
+			if (!$this->preparedStatement->execute ($preparedStatementValues)) {
+				return $data;
+			}
+			
+			# Fetch the data
+			$this->preparedStatement->setFetchMode ($mode);
+			$data = $this->preparedStatement->fetchAll ();
+			
+		} else {
+			
+			# Assign the query
+			if (!$statement = $this->connection->query ($query)) {
+				return $data;
+			}
+			
+			# Loop through each row and add the data to it
+			$statement->setFetchMode ($mode);
+			while ($row = $statement->fetch ()) {
+				$data[] = $row;
+			}
 		}
-		#!# Use fetchAll instead with the relevant constant(s) ?
-//		$data = $statement->fetchAll ();	// Doesn't seem to work
 		
 		# Reassign the keys to being the unique field's name, in associative mode
 		if ($associative) {
@@ -213,15 +244,15 @@ class database
 	
 	
 	# Function to count the number of records
-	function getTotal ($database, $table, $restrictionSql = '')
+	public function getTotal ($database, $table, $restrictionSql = '')
 	{
 		# Check that the table exists
 		$tables = $this->getTables ($database);
 		if (!in_array ($table, $tables)) {return false;}
 		
 		# Get the total
-		$this->query = "SELECT COUNT(*) AS total FROM `{$database}`.`{$table}` {$restrictionSql};";
-		$data = $this->getOne ($this->query);
+		$query = "SELECT COUNT(*) AS total FROM `{$database}`.`{$table}` {$restrictionSql};";
+		$data = $this->getOne ($query);
 		
 		# Return the value
 		return $data['total'];
@@ -229,11 +260,19 @@ class database
 	
 	
 	# Function to get fields
-	function getFields ($database, $table, $addSimpleType = false)
+	public function getFields ($database, $table, $addSimpleType = false)
 	{
+		# Cache the global query and its values, if either exist, so that they can be reinstated when this function is called by another function internally
+		$cachedQuery = ($this->query ? $this->query : NULL);
+		$cachedQueryValues = (!is_null ($this->queryValues) ? $this->queryValues : NULL);
+		
 		# Get the data
-		$this->query = "SHOW FULL FIELDS FROM `{$database}`.`{$table}`;";
-		$data = $this->getData ($this->query);
+		$query = "SHOW FULL FIELDS FROM `{$database}`.`{$table}`;";
+		$data = $this->getData ($query);
+		
+		# Restablish the catched query and its values if there is one
+		if (!is_null ($cachedQuery)) {$this->query = $cachedQuery;}
+		if (!is_null ($cachedQuery)) {$this->queryValues = $cachedQueryValues;}
 		
 		# Convert the field name to be the key name
 		$fields = array ();
@@ -258,13 +297,13 @@ class database
 	{
 		# Detect the type and give a simplified description of it
 		switch (true) {
-			case preg_match ('~^varchar~', $type):
+			case preg_match ('/^varchar/', $type):
 				return 'string';
-			case preg_match ('~text~', $type):
+			case preg_match ('/text/', $type):
 				return 'text';
-			case preg_match ('~^(float|int)~', $type):
+			case preg_match ('/^(float|int)/', $type):
 				return 'numeric';
-			case preg_match ('~^(enum|set)~', $type):
+			case preg_match ('/^(enum|set)/', $type):
 				return 'list';
 		}
 		
@@ -274,7 +313,7 @@ class database
 	
 	
 	# Function to get the unique field name
-	function getUniqueField ($database, $table, $fields = false)
+	public function getUniqueField ($database, $table, $fields = false)
 	{
 		# Get the fields if not already supplied
 		if (!$fields) {$fields = $this->getFields ($database, $table);}
@@ -292,7 +331,7 @@ class database
 	
 	
 	# Function to get field names
-	function getFieldNames ($database, $table, $fields = false)
+	public function getFieldNames ($database, $table, $fields = false)
 	{
 		# Get the fields if not already supplied
 		if (!$fields) {$fields = $this->getFields ($database, $table);}
@@ -303,7 +342,7 @@ class database
 	
 	
 	# Function to get field descriptions as a simple associative array
-	function getHeadings ($database, $table, $fields = false, $useFieldnameIfEmpty = true, $commentsAsHeadings = true)
+	public function getHeadings ($database, $table, $fields = false, $useFieldnameIfEmpty = true, $commentsAsHeadings = true)
 	{
 		# Get the fields if not already supplied
 		if (!$fields) {$fields = $this->getFields ($database, $table);}
@@ -320,11 +359,11 @@ class database
 	
 	
 	# Function to obtain a list of databases on the server
-	function getDatabases ($removeReserved = array ('cluster', 'information_schema', 'mysql'))
+	public function getDatabases ($omitReserved = array ('cluster', 'information_schema', 'mysql'))
 	{
 		# Get the data
-		$this->query = "SHOW DATABASES;";
-		$data = $this->getData ($this->query);
+		$query = "SHOW DATABASES;";
+		$data = $this->getData ($query);
 		
 		# Sort the list
 		if ($data) {sort ($data);}
@@ -332,7 +371,7 @@ class database
 		# Rearrange
 		$databases = array ();
 		foreach ($data as $index => $attributes) {
-			if ($removeReserved && in_array ($attributes['Database'], $removeReserved)) {continue;}
+			if ($omitReserved && in_array ($attributes['Database'], $omitReserved)) {continue;}
 			$databases[] = $attributes['Database'];
 		}
 		
@@ -342,11 +381,12 @@ class database
 	
 	
 	# Function to obtain a list of tables in a database
-	function getTables ($database)
+	#!# A regexp filtering option would useful and could replace some client code
+	public function getTables ($database)
 	{
 		# Get the data
-		$this->query = "SHOW TABLES FROM `{$database}`;";
-		$data = $this->getData ($this->query);
+		$query = "SHOW TABLES FROM `{$database}`;";
+		$data = $this->getData ($query);
 		
 		# Rearrange
 		$tables = array ();
@@ -360,15 +400,17 @@ class database
 	
 	
 	# Function to get the ID generated from the previous insert operation
-	function getLatestId ()
+	#!# Rename this for consistency
+	#!# Emulate away the problem that, in the case of an insertMany, MySQL returns the *first* automatically-generated ID! - see http://dev.mysql.com/doc/refman/5.1/en/mysql-insert-id.html
+	public function getLatestId ()
 	{
 		# Return the latest ID
 		return $this->connection->lastInsertId ();
 	}
 	
 	
-	# Function to clean all data
-	function escape ($uncleanData, $cleanKeys = true)
+	# Function to clean data
+	public function escape ($uncleanData, $cleanKeys = true)
 	{
 		# End if no data
 		if (empty ($uncleanData)) {return $uncleanData;}
@@ -391,7 +433,7 @@ class database
 	
 	
 	# Function to deal with quotation, i.e. escaping AND adding quotation marks around the item
-	/* private */ function quote ($data)
+	/* private */ public function quote ($data)
 	{
 		# Strip slashes if necessary
 		if (get_magic_quotes_gpc ()) {
@@ -412,14 +454,14 @@ class database
 	
 	
 	# Function to construct and execute a SELECT statement
-	function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false)
+	public function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false)
 	{
 		# Construct the WHERE clause
 		$where = '';
 		if ($conditions) {
 			$where = array ();
 			foreach ($conditions as $key => $value) {
-				$where[] = '`' . $key . '`' . '=' . $this->quote ($value);
+				$where[] = '`' . $key . '`' . ' = :' . $key;
 			}
 			$where = ' WHERE ' . implode (' AND ', $where);
 		}
@@ -441,11 +483,11 @@ class database
 		# Construct the ordering
 		$orderBy = ($orderBy ? " ORDER BY {$orderBy}" : '');
 		
-		# Assemble the query
-		$this->query = "SELECT {$what} FROM `{$database}`.`{$table}`{$where}{$orderBy};\n";
+		# Prepare the statement
+		$query = "SELECT {$what} FROM `{$database}`.`{$table}`{$where}{$orderBy};\n";
 		
 		# Get the data
-		$data = $this->getData ($this->query, ($associative ? "{$database}.{$table}" : false));
+		$data = $this->getData ($query, ($associative ? "{$database}.{$table}" : false), true, $conditions);
 		
 		# Return the data
 		return $data;
@@ -453,7 +495,7 @@ class database
 	
 	
 	# Function to select the data where only one item will be returned (as per getOne); this function has the same signature as select, except for the default on associative
-	function selectOne ($database, $table, $conditions = array (), $columns = array (), $associative = false, $orderBy = false)
+	public function selectOne ($database, $table, $conditions = array (), $columns = array (), $associative = false, $orderBy = false)
 	{
 		# Get the data
 		$data = $this->select ($database, $table, $conditions, $columns, $associative, $orderBy);
@@ -469,8 +511,8 @@ class database
 	}
 	
 	
-	# Function to construct and execute a SELECT statement
-	function selectCsv ($filenameBase, $database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false)
+	# Function to construct and execute a SELECT statement and return a CSV file stream
+	public function selectCsv ($filenameBase, $database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false)
 	{
 		# Pass the data straight through
 		$data = $this->select ($database, $table, $conditions, $columns, $associative, $orderBy);
@@ -487,7 +529,7 @@ class database
 	
 	
 	# Function to construct and execute an INSERT statement
-	function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false)
+	public function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
@@ -496,14 +538,19 @@ class database
 		$fields = '`' . implode ('`,`', array_keys ($data)) . '`';
 		
 		# Assemble the values
+		$preparedValuePlaceholders = array ();
 		foreach ($data as $key => $value) {
-			if ($emptyToNull && ($value == '')) {$value = NULL;}	// Convert empty to NULL
-			$values[] = ($value === NULL ? 'NULL' : $this->quote ($value));
+			if ($emptyToNull && ($data[$key] == '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
+			if ($data[$key] == 'NOW()') {	// Special handling for keywords, which are not quoted
+				$preparedValuePlaceholders[] = $data[$key];	// State the value directly rather than use a placeholder
+				unset ($data[$key]);
+				continue;
+			}
+			$preparedValuePlaceholders[] = ':' . $key;
 		}
-		$values = implode (',', $values);
+		$preparedValuePlaceholders = implode (', ', $preparedValuePlaceholders);
 		
 		# Allow for an optional ON DUPLICATE KEY UPDATE clause - see: http://dev.mysql.com/doc/refman/5.1/en/insert-on-duplicate.html
-		#!# Quoting?
 		if ($onDuplicateKeyUpdate) {
 			if ($onDuplicateKeyUpdate === true) {
 				foreach ($data as $key => $value) {
@@ -518,22 +565,22 @@ class database
 		}
 		
 		# Assemble the query
-		$this->query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES ({$values}){$onDuplicateKeyUpdate};\n";
+		$query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES ({$preparedValuePlaceholders}){$onDuplicateKeyUpdate};\n";
 		
 		# In safe mode, only show the query
 		if ($safe) {
-			echo $this->query . "<br />";
+			echo $query . "<br />";
 			return true;
 		}
 		
 		# Execute the query
-		$rows = $this->execute ($this->query, $showErrors);
+		$rows = $this->execute ($query, $data, $showErrors);
 		
 		# Determine the result
 		$result = ($rows !== false);
 		
 		# Log the change
-		$this->logChange ($this->query, $result);
+		$this->logChange ($result);
 		
 		# Return the result
 		return $result;
@@ -541,7 +588,7 @@ class database
 	
 	
 	# Function to construct and execute an INSERT statement containing many items
-	function insertMany ($database, $table, $dataSet, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false)
+	public function insertMany ($database, $table, $dataSet, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false)
 	{
 		# ON DUPLICATE KEY UPDATE is not available in this interface (though has been left in the argument list for API consistency)
 		if ($onDuplicateKeyUpdate) {return false;}
@@ -550,6 +597,8 @@ class database
 		if (!is_array ($dataSet) || !$dataSet) {return false;}
 		
 		# Loop through each set of data
+		$valuesPreparedSet = array ();
+		$dataPrepared = array ();
 		foreach ($dataSet as $index => $data) {
 			
 			# Ensure the data is an array and that there is data
@@ -570,16 +619,23 @@ class database
 			$fields = '`' . implode ('`,`', $fields) . '`';
 			
 			# Assemble the values
-			$values = array ();
+			$preparedValuePlaceholders = array ();
 			foreach ($data as $key => $value) {
-				if ($emptyToNull && ($value == '')) {$value = NULL;}	// Convert empty to NULL
-				$values[] = ($value === NULL ? 'NULL' : $this->quote ($value));
+				if ($emptyToNull && ($data[$key] == '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
+				if ($data[$key] == 'NOW()') {	// Special handling for keywords, which are not quoted
+					$preparedValuePlaceholders[] = $data[$key];	// State the value directly rather than use a placeholder
+					unset ($data[$key]);
+					continue;
+				}
+				$placeholder = ":{$index}_{$key}";
+				$preparedValuePlaceholders[] = ' ' . $placeholder;
+				$dataPrepared[$placeholder] = $data[$key];
 			}
-			$valuesSet[$index] = implode (',', $values);
+			$valuesPreparedSet[$index] = implode (',', $preparedValuePlaceholders);
 		}
 		
 		# Assemble the query
-		$query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES (" . implode ('),(', $valuesSet) . ");\n";
+		$query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES (" . implode ('),(', $valuesPreparedSet) . ");\n";
 		
 		# Prevent submission of over-long queries
 		$maxLength = $this->getOne ("SHOW VARIABLES LIKE 'max_allowed_packet'");
@@ -589,23 +645,20 @@ class database
 			}
 		}
 		
-		# Assign the global query value; this is done after the getOne query to avoid reallocation
-		$this->query = $query;
-		
 		# In safe mode, only show the query
 		if ($safe) {
-			echo $this->query . "<br />";
+			echo $query . "<br />";
 			return true;
 		}
 		
 		# Execute the query
-		$rows = $this->execute ($this->query, $showErrors);
+		$rows = $this->execute ($query, $dataPrepared, $showErrors);
 		
 		# Determine the result
 		$result = ($rows !== false);
 		
 		# Log the change
-		$this->logChange ($this->query, $result);
+		$this->logChange ($result);
 		
 		# Return the result
 		return $result;
@@ -613,79 +666,78 @@ class database
 	
 	
 	# Function to construct and execute an UPDATE statement
-	function update ($database, $table, $data, $conditions = array (), $emptyToNull = true, $safe = false)
+	public function update ($database, $table, $data, $conditions = array (), $emptyToNull = true, $safe = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
 		
+		# Start an array of placeholder=>value data that will contain both values and conditions
+		$dataUniqued = array ();
+		
 		# Assemble the pairs
+		$preparedValueUpdates = array ();
 		foreach ($data as $key => $value) {
-			if ($emptyToNull && ($value == '')) {$value = NULL;}	// Convert empty to NULL
-			$useValue = ($value === NULL ? 'NULL' : $this->quote ($value));
-			$updates[] = "`{$key}`=" . $useValue;
 			
 			# Make the condition be that the first item is the key if nothing specified
+			#!# This looks like being bogus - audit whether this can be removed or whether it is necessary for safety
 			if (!$conditions) {
-				$conditions[$key] = $value;
+				$conditions[$key] = $value;	// This will only get triggered once, because it $conditions will be non-empty
 			}
+			
+			# Add the data
+			if ($emptyToNull && ($data[$key] == '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
+			if ($data[$key] == 'NOW()') {	// Special handling for keywords, which are not quoted
+				$preparedValueUpdates[] = "`{$key}`= " . $data[$key];
+				unset ($data[$key]);
+				continue;
+			}
+			$placeholder = "data_" . $key;	// The prefix ensures namespaced uniqueness within $dataUniqued
+			$preparedValueUpdates[] = "`{$key}`= :" . $placeholder;
+			
+			# Save the data using the new placeholder
+			$dataUniqued[$placeholder] = $data[$key];
 		}
-		$updates = implode (', ', $updates);
+		$preparedValueUpdates = implode (',', $preparedValueUpdates);
 		
 		# Construct the WHERE clause
-		$where = array ();
-		foreach ($conditions as $key => $value) {
-			$where[] = '`' . $key . "` = " . $this->quote ($value);
+		$where = '';
+		if ($conditions) {
+			$where = array ();
+			foreach ($conditions as $key => $value) {
+				$placeholder = 'conditions_' . $key;	// The prefix ensures namespaced uniqueness within $dataUniqued
+				$where[] = '`' . $key . '` = :' . $placeholder;
+				
+				# Save the data using the new placeholder
+				$dataUniqued[$placeholder] = $value;
+			}
+			$where = ' WHERE ' . implode (' AND ', $where);
 		}
-		$where = implode (' AND ', $where);
 		
 		# Assemble the query
-		$this->query = "UPDATE `{$database}`.`{$table}` SET {$updates} WHERE {$where};\n";
+		$query = "UPDATE `{$database}`.`{$table}` SET {$preparedValueUpdates}{$where};\n";
 		
 		# In safe mode, only show the query
 		if ($safe) {
-			echo $this->query . "<br />";
+			echo $query . "<br />";
 			return true;
 		}
 		
 		# Execute the query
-		$rows = $this->execute ($this->query);
+		$rows = $this->execute ($query, $dataUniqued);
 		
 		# Determine the result
 		$result = ($rows !== false);
 		
 		# Log the change
-		$this->logChange ($this->query, $result);
+		$this->logChange ($result);
 		
-		# Return whether the operation failed or succeeded
+		# Return the result
 		return $result;
 	}
 	
 	
-	# Function to log a change
-	#!# Ideally have some way to throw an error if the logfile is not writable
-	function logChange ($query, $result)
-	{
-		# End if logging disabled
-		if (!$this->logFile) {return false;}
-		
-		# End if the file is not writable, or the containing directory is not if the file does not exist
-		if (file_exists ($this->logFile)) {
-			if (!is_writable ($this->logFile)) {return false;}
-		} else {
-			$directory = dirname ($this->logFile);
-			if (!is_writable ($directory)) {return false;}
-		}
-		
-		# Create the log entry
-		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d H:i:s') . ' by ' . $this->userForLogging . ' */ ' . str_replace ("\r\n", '\\r\\n', $query);
-		
-		# Log the change
-		file_put_contents ($this->logFile, $logEntry, FILE_APPEND);
-	}
-	
-	
 	# Function to delete data
-	function delete ($database, $table, $conditions, $limit = false)
+	public function delete ($database, $table, $conditions, $limit = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($conditions) || !$conditions) {return false;}
@@ -695,7 +747,7 @@ class database
 		if ($conditions) {
 			$where = array ();
 			foreach ($conditions as $key => $value) {
-				$where[] = $key . "=" . $this->quote ($value);
+				$where[] = '`' . $key . '`' . ' = :' . $key;
 			}
 			$where = ' WHERE ' . implode (' AND ', $where);
 		}
@@ -704,46 +756,52 @@ class database
 		$limit = ($limit ? " LIMIT {$limit}" : '');
 		
 		# Assemble the query
-		$this->query = "DELETE FROM `{$database}`.`{$table}`{$where}{$limit};\n";
+		$query = "DELETE FROM `{$database}`.`{$table}`{$where}{$limit};\n";
 		
 		# Execute the query
-		$result = $this->execute ($this->query);
+		$result = $this->execute ($query, $conditions);
 		
 		# Log the change
-		$this->logChange ($this->query, $result);
+		$this->logChange ($result);
 		
-		# Return whether the operation failed or succeeded
+		# Return the result
 		return $result;
 	}
 	
 	
-	# Function to delete a set of ids
-	function deleteIds ($database, $table, $list, $field = 'id')
+	# Function to delete a set of IDs
+	public function deleteIds ($database, $table, $values, $field = 'id')
 	{
 		# End if no items
-		if (!$list || !is_array ($list)) {return false;}
+		if (!$values || !is_array ($values)) {return false;}
 		
-		# Apply escaping; see comment in http://dev.mysql.com/doc/refman/5.0/en/regexp.html stating that preg_quote seems to work
-		foreach ($list as $index => $item) {
-			$list[$index] = addslashes (preg_quote ($item));
+		# Create placeholders
+		$placeholders = array ();
+		$placeholderValues = array ();
+		$i = 0;
+		foreach ($values as $key => $value) {
+			$placeholderName = "p{$i}";
+			$placeholders[$i] = ':' . $placeholderName;
+			$placeholderValues[$placeholderName] = $value;
+			$i++;
 		}
 		
 		# Assemble the query
-		$this->query = "DELETE FROM `{$database}`.`{$table}` WHERE `{$field}` REGEXP '^(" . implode ('|', $list) . ")$';\n";
+		$query = "DELETE FROM `{$database}`.`{$table}` WHERE `{$field}` IN (" . implode (', ', $placeholders) . ");";
 		
 		# Execute the query
-		$result = $this->execute ($this->query);
+		$rows = $this->execute ($query, $placeholderValues);
 		
 		# Log the change
-		$this->logChange ($this->query, $result);
+		$this->logChange ($rows);
 		
-		# Return whether the operation failed or succeeded
-		return $result;
+		# Return the number of affected rows
+		return $rows;
 	}
 	
 	
 	# Function to create a table from a list of fields
-	function createTable ($database, $table, $fields, $ifNotExists = true)
+	public function createTable ($database, $table, $fields, $ifNotExists = true, $type = 'InnoDB')
 	{
 		# Construct the list of fields
 		$fieldsSql = array ();
@@ -752,7 +810,7 @@ class database
 		}
 		
 		# Compile the overall SQL; type is deliberately set to InnoDB so that rows are physically stored in the unique key order
-		$query = 'CREATE TABLE' . ($ifNotExists ? ' IF NOT EXISTS' : '') . " `{$database}`.`{$table}` (" . implode (', ', $fieldsSql) . ") TYPE=InnoDB CHARACTER SET utf8 COLLATE utf8_unicode_ci;";
+		$query = 'CREATE TABLE' . ($ifNotExists ? ' IF NOT EXISTS' : '') . " `{$database}`.`{$table}` (" . implode (', ', $fieldsSql) . ") TYPE={$type} CHARACTER SET utf8 COLLATE utf8_unicode_ci;";
 		
 		# Create the table
 		if (false === $this->execute ($query)) {return false;}
@@ -763,13 +821,13 @@ class database
 	
 	
 	# Function to get table metadata
-	function getTableStatus ($database, $table, $getOnly = false /*array ('Comment')*/)
+	public function getTableStatus ($database, $table, $getOnly = false /*array ('Comment')*/)
 	{
 		# Define the query
-		$this->query = "SHOW TABLE STATUS FROM `{$database}` LIKE '{$table}';";
+		$query = "SHOW TABLE STATUS FROM `{$database}` LIKE '{$table}';";
 		
 		# Get the results
-		$data = $this->getOne ($this->query);
+		$data = $this->getOne ($query);
 		
 		# If only needing certain columns, return only those
 		if ($getOnly && is_array ($getOnly)) {
@@ -788,17 +846,22 @@ class database
 	
 	
 	# Function to get error information
-	function error ()
+	public function error ()
 	{
 		# Get the error details
 		if ($this->connection) {
-			$error = $this->connection->errorInfo ();
+			if ($this->preparedStatement) {
+				$error = $this->preparedStatement->errorInfo ();
+			} else {
+				$error = $this->connection->errorInfo ();
+			}
 		} else {
 			$error = array ('error' => 'No database connection available');
 		}
 		
 		# Add in the SQL statement
-		$error['query'] = $this->query;
+		$error['query'] = $this->getQuery (true);
+		$error['queryEmulated'] = $this->getQuery (false);
 		
 		# Return the details
 		return $error;
@@ -807,13 +870,13 @@ class database
 	
 	# Define a lookup function used to join fields in the format fieldname__JOIN__targetDatabase__targetTable__reserved
 	#!# Caching mechanism needed for repeated fields (and fieldnames as below), one level higher in the calling structure
-	function lookup ($databaseConnection, $fieldname, $fieldType, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array ())
+	public function lookup ($databaseConnection, $fieldname, $fieldType, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array ())
 	{
 		# Determine if it's a special JOIN field
 		$values = array ();
 		$targetDatabase = NULL;
 		$targetTable = NULL;
-		if ($matches = database::convertJoin ($fieldname)) {
+		if ($matches = self::convertJoin ($fieldname)) {
 			
 			# Load required libraries
 			require_once ('application.php');
@@ -924,7 +987,7 @@ class database
 	
 	
 	# Function to convert joins
-	function convertJoin ($fieldname)
+	public function convertJoin ($fieldname)
 	{
 		# Return if matched
 		if (ereg ('^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([-_a-zA-Z0-9]+)__reserved$', $fieldname, $matches)) {
@@ -937,6 +1000,32 @@ class database
 		
 		# Otherwise return false;
 		return false;
+	}
+	
+	
+	# Function to log a change
+	#!# Ideally have some way to throw an error if the logfile is not writable
+	public function logChange ($result)
+	{
+		# End if logging disabled
+		if (!$this->logFile) {return false;}
+		
+		# Get the query
+		$query = $this->getQuery ();
+		
+		# End if the file is not writable, or the containing directory is not if the file does not exist
+		if (file_exists ($this->logFile)) {
+			if (!is_writable ($this->logFile)) {return false;}
+		} else {
+			$directory = dirname ($this->logFile);
+			if (!is_writable ($directory)) {return false;}
+		}
+		
+		# Create the log entry
+		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d H:i:s') . ' by ' . $this->userForLogging . ' */ ' . str_replace ("\r\n", '\\r\\n', $query);
+		
+		# Log the change
+		file_put_contents ($this->logFile, $logEntry, FILE_APPEND);
 	}
 	
 	
@@ -973,6 +1062,46 @@ class database
 		
 		# Return the HTML
 		return $html;
+	}
+	
+	
+	# Public accessor function to get the query
+	function getQuery ($showRawPreparedQuery = false)
+	{
+		# Return the direct query if emulation of what the prepared statement is not required
+		if ($showRawPreparedQuery) {
+			return $this->query;
+		}
+		
+		# If there are no query values, return the prepared statement
+		if (!$this->queryValues) {
+			return $this->query;
+		}
+		
+		# Add colons to each and quote the values, dealing with special cases like NULL and NOW()
+		$values = array ();
+		foreach ($this->queryValues as $key => $value) {
+			$colonedKey = ':' . $key;
+			switch (true) {
+				case is_null ($value):
+					$values[$colonedKey] = 'NULL';
+					break;
+				case $value == 'NOW()':
+					$values[$colonedKey] = 'NOW()';
+					break;
+				default:
+					$values[$colonedKey] = $this->quote ($value);
+			}
+		}
+		
+		# Sort by key reversed, so that longer key names come first to avoid overlapping replacements
+		krsort ($values);
+		
+		# Do replacement
+		$query = strtr ($this->query, $values);
+		
+		# Return the query
+		return $query;
 	}
 }
 

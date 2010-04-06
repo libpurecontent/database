@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-10
- * Version 2.0.0
+ * Version 2.0.1
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1030,23 +1030,25 @@ class database
 	
 	
 	# Function to notify the admin of a connection error
-	public function reportError ($administratorEmail, $applicationName)
+	public function reportError ($administratorEmail, $applicationName, $filename = false, $errorMessage = 'A database connection could not be established.')
 	{
 		# Tell the user
 		$html = "\n<p class=\"warning\">Error: This facility is temporarily unavailable. Please check back shortly. The administrator has been notified of this problem.</p>";
 		
+		# Determine the filename to use
+		if (!$filename) {
+			$filename = getcwd () . '/' . 'errornotifiedflagfile';
+		}
+		
 		# If there is not a flag file, write one, then report the error by e-mail
-		if (!file_exists ('./errornotifiedflagfile')) {
-			
-			# Define an error message
-			$errorMessage  = 'A database connection could not be established.';
+		if (!file_exists ($filename)) {
 			
 			# Attempt to write the notification file
-			if (is_writable ('./')) {
+			$directory = dirname ($filename);
+			if (is_writable ($directory)) {
 				umask (002);
-				$file = getcwd () . '/' . 'errornotifiedflagfile';
-				file_put_contents ($file, date ('r'));
-				$errorMessage .= "\n\nWhen the error has been corrected, you must delete the error notification flag file at\n{$file}";
+				file_put_contents ($filename, date ('r'));
+				$errorMessage .= "\n\nWhen the error has been corrected, you must delete the error notification flag file at\n{$filename}";
 			} else {
 				$errorMessage .= "\n\nAdditionally, an errornotifiedflagfile could not be written, so further e-mails like this will continue.";
 			}
@@ -1057,7 +1059,7 @@ class database
 			
 			# Mail the admin
 			$mailheaders = "From: {$applicationName} <" . $administratorEmail . ">\n";
-			application::utf8Mail ($administratorEmail, 'Database connection error: ' . $applicationName, wordwrap ($errorMessage), $mailheaders);
+			application::utf8Mail ($administratorEmail, 'Data access error: ' . $applicationName, wordwrap ($errorMessage), $mailheaders);
 		}
 		
 		# Return the HTML

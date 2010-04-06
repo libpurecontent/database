@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-10
- * Version 2.0.1
+ * Version 2.0.2
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -284,6 +284,15 @@ class database
 		if ($addSimpleType) {
 			foreach ($data as $key => $attributes) {
 				$fields[$attributes['Field']]['_type'] = $this->simpleType ($attributes['Type']);
+			}
+		}
+		
+		# Expand ENUM field values
+		foreach ($data as $key => $attributes) {
+			if (preg_match ('/^enum\(\'(.+)\'\)$/i', $attributes['Type'], $matches)) {
+				$fields[$attributes['Field']]['_values'] = explode ("','", $matches[1]);
+			} else {
+				$fields[$attributes['Field']]['_values'] = NULL;
 			}
 		}
 		
@@ -734,6 +743,9 @@ class database
 		# Return the result
 		return $result;
 	}
+	
+	
+	#!# An update many would be useful sometimes
 	
 	
 	# Function to delete data

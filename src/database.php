@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-10
- * Version 2.0.2
+ * Version 2.0.3
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1116,6 +1116,13 @@ class database
 		
 		# Return the query
 		return $query;
+	}
+	
+	
+	# Function to do sort trimming of a field name, to be put in an ORDER BY clause
+	function trimSql ($fieldname)
+	{
+		return "TRIM( LEADING '\"' FROM TRIM( LEADING \"'\" FROM TRIM( LEADING 'a ' FROM TRIM( LEADING 'an ' FROM TRIM( LEADING 'the ' FROM LOWER( `{$fieldname}` ) ) ) ) ) )";
 	}
 }
 

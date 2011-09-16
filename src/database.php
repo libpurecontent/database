@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-10
- * Version 2.0.3
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-11
+ * Version 2.0.4
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -310,10 +310,12 @@ class database
 				return 'string';
 			case preg_match ('/text/', $type):
 				return 'text';
-			case preg_match ('/^(float|int)/', $type):
+			case preg_match ('/^(float|double|int)/', $type):
 				return 'numeric';
 			case preg_match ('/^(enum|set)/', $type):
 				return 'list';
+			case preg_match ('/^(date)/', $type):
+				return 'date';
 		}
 		
 		# Otherwise pass through the original

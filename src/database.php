@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-11
- * Version 2.0.4
+ * Version 2.0.5
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -819,8 +819,21 @@ class database
 	{
 		# Construct the list of fields
 		$fieldsSql = array ();
-		foreach ($fields as $fieldname => $specification) {
-			$fieldsSql[] = "{$fieldname} {$specification}";
+		foreach ($fields as $fieldname => $field) {	// where $field contains the specification, either as a string like VARCHAR(255) NOT NULL, or an array containing those parts
+			
+			# Create a list of fields, building up a string for each equivalent to the per-field specification in a CREATE TABLE query
+			if (is_array ($field)) {
+				$key = $field['Field'];
+				$specification  = strtoupper ($field['Type']);
+				if (strlen ($field['Collation'])) {$specification .= ' collate ' . $field['Collation'];}
+				if (strtoupper ($field['Null']) == 'NO') {$specification .= ' NOT NULL';}
+				if (strtoupper ($field['Key']) == 'PRI') {$specification .= ' PRIMARY KEY';}
+				if (strlen ($field['Default'])) {$specification .= ' DEFAULT ' . $field['Default'];}
+				$field = $specification;
+			}
+			
+			# Add the field
+			$fieldsSql[] = "{$fieldname} {$field}";
 		}
 		
 		# Compile the overall SQL; type is deliberately set to InnoDB so that rows are physically stored in the unique key order

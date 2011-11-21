@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-11
- * Version 2.0.5
+ * Version 2.0.6
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -172,7 +172,7 @@ class database
 	}
 	
 	
-	# Function to get data from an SQL query and return it as an array; $associative should be false or a string "{$database}.{$table}" (which reindexes the data to the field containing the unique key)
+	# Function to get data from an SQL query and return it as an array; $associative should be false or a string "{$database}.{$table}" (which reindexes the data to the field containing the unique key) or a supplied fieldname to avoid a SHOW FULL FIELDS lookup
 	# Uses prepared statement approach if a fourth parameter providing the placeholder values is supplied
 	public function getData ($query, $associative = false, $keyed = true, $preparedStatementValues = array ())
 	{
@@ -217,13 +217,16 @@ class database
 		# Reassign the keys to being the unique field's name, in associative mode
 		if ($associative) {
 			
-			# Split the associative into the database and table name
+			# Get the unique field name, looking it up if supplied as 'database.table'; otherwise use the id directly
 			if (strpos ($associative, '.') !== false) {
 				list ($database, $table) = explode ('.', $associative, 2);
+				$uniqueField = $this->getUniqueField ($database, $table);
+			} else {
+				$uniqueField = $associative;
 			}
 			
-			# Get the unique field name, or return as non-keyed data
-			if (!$uniqueField = $this->getUniqueField ($database, $table)) {
+			# Return as non-keyed data if no unique field
+			if (!$uniqueField) {
 				return $data;
 			}
 			

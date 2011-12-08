@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-11
- * Version 2.0.6
+ * Version 2.0.7
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -468,7 +468,7 @@ class database
 	
 	
 	# Function to construct and execute a SELECT statement
-	public function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false)
+	public function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false, $limit = false)
 	{
 		# Construct the WHERE clause
 		$where = '';
@@ -484,12 +484,16 @@ class database
 		$what = '*';
 		if ($columns) {
 			$what = array ();
-			foreach ($columns as $key => $value) {
-				if (is_numeric ($key)) {
-					$what[] = $value;
-				} else {
-					$what[] = "{$key} AS {$value}";
+			if (is_array ($columns)) {
+				foreach ($columns as $key => $value) {
+					if (is_numeric ($key)) {
+						$what[] = $value;
+					} else {
+						$what[] = "{$key} AS {$value}";
+					}
 				}
+			} else {	// Currently assumed to be a string if it's not an array
+				$what[] = $columns;
 			}
 			$what = implode (',', $what);
 		}
@@ -497,8 +501,11 @@ class database
 		# Construct the ordering
 		$orderBy = ($orderBy ? " ORDER BY {$orderBy}" : '');
 		
+		# Construct the limit
+		$limit = ($limit ? " LIMIT {$limit}" : '');
+		
 		# Prepare the statement
-		$query = "SELECT {$what} FROM `{$database}`.`{$table}`{$where}{$orderBy};\n";
+		$query = "SELECT {$what} FROM `{$database}`.`{$table}`{$where}{$orderBy}{$limit};\n";
 		
 		# Get the data
 		$data = $this->getData ($query, ($associative ? "{$database}.{$table}" : false), true, $conditions);

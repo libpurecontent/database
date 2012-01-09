@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-11
- * Version 2.0.7
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
+ * Version 2.1.0+cyclestreets-clearPreparedStatement
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -18,6 +18,15 @@ class database
 	private $preparedStatement = NULL;
 	private $query = NULL;
 	private $queryValues = NULL;
+	
+	
+	// !! This setter is a work-around for the error() function, and is needed by CycleStreets.
+	// The work around is to reset this variable to NULL for non-prep statement calls to e.g. getData().
+	// See http://dev.cyclestreets.net/ticket/509
+	public function clearPreparedStatement ()
+	{
+		$this->preparedStatement = NULL;
+	}
 	
 	
 	# Function to connect to the database
@@ -141,6 +150,54 @@ class database
 		foreach ($data as $keyOrIndex => $item) {
 			return $item;
 		}
+	}
+	
+	
+	# Return the value of the field column from the single-result query
+	public function getOneField ($query, $field)
+	{
+		# Get the result or end (returning null or false)
+		if (!$result = $this->getOne ($query)) {return $result;}
+		
+		# If the field doesn't exist, return false
+		if (!isSet ($result[$field])) {return false;}
+		
+		# Return the field
+		return $result[$field];
+	}
+	
+	
+	# A single row of data from the query is expected and returned; otherwise false is returned (never NULL)
+	public function expectOne ($query)
+	{
+		# Get the data or end
+		if (!$result = $this->getOne ($query)) {return false;}
+    	
+		# Return the result
+		return $result;
+	}
+	
+	
+	# A single row of data from the query is expected and returned; otherwise false is returned
+	public function expectOneField ($query, $field)
+	{
+		// Without any error handling this is the same as getOneField
+		#!# Is this expectOneField() function needed therefore - or is this just incomplete?
+		$result = $this->getOneField ($query, $field);
+    	
+		# Return the result
+		return $result;
+	}
+	
+	
+	# Gets results from the query, returning false if there are none (never an empty array)
+	public function expectData ($query)
+	{
+		# Get the data or end
+		if (!$result = $this->getData ($query)) {return false;}
+    	
+		# Return the result
+		return $result;
 	}
 	
 	

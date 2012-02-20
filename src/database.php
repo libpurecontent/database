@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.1.0+cyclestreets-clearPreparedStatement
+ * Version 2.1.1+cyclestreets-clearPreparedStatement
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -618,7 +618,7 @@ class database
 		# Assemble the values
 		$preparedValuePlaceholders = array ();
 		foreach ($data as $key => $value) {
-			if ($emptyToNull && ($data[$key] == '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
+			if ($emptyToNull && ($data[$key] === '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
 			if ($data[$key] == 'NOW()') {	// Special handling for keywords, which are not quoted
 				$preparedValuePlaceholders[] = $data[$key];	// State the value directly rather than use a placeholder
 				unset ($data[$key]);
@@ -699,7 +699,7 @@ class database
 			# Assemble the values
 			$preparedValuePlaceholders = array ();
 			foreach ($data as $key => $value) {
-				if ($emptyToNull && ($data[$key] == '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
+				if ($emptyToNull && ($data[$key] === '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
 				if ($data[$key] == 'NOW()') {	// Special handling for keywords, which are not quoted
 					$preparedValuePlaceholders[] = $data[$key];	// State the value directly rather than use a placeholder
 					unset ($data[$key]);
@@ -763,7 +763,7 @@ class database
 			}
 			
 			# Add the data
-			if ($emptyToNull && ($data[$key] == '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
+			if ($emptyToNull && ($data[$key] === '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
 			if ($data[$key] == 'NOW()') {	// Special handling for keywords, which are not quoted
 				$preparedValueUpdates[] = "`{$key}`= " . $data[$key];
 				unset ($data[$key]);
@@ -1005,7 +1005,7 @@ class database
 			# Sort
 			if ($sort) {ksort ($data);}
 			
-			# Determine whether to show keys (defaults to showing keys if the field is numeric)
+			# Determine whether to show keys (defaults to showing keys if the field is not numeric)
 			$showKey = ($showKeys === NULL ? (!strstr ($fieldType, 'int(')) : $showKeys);
 			
 			# Deal with grouping if required

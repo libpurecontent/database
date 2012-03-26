@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.1.1+cyclestreets-clearPreparedStatement
+ * Version 2.1.2+cyclestreets-clearPreparedStatement
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -231,7 +231,7 @@ class database
 	
 	# Function to get data from an SQL query and return it as an array; $associative should be false or a string "{$database}.{$table}" (which reindexes the data to the field containing the unique key) or a supplied fieldname to avoid a SHOW FULL FIELDS lookup
 	# Uses prepared statement approach if a fourth parameter providing the placeholder values is supplied
-	public function getData ($query, $associative = false, $keyed = true, $preparedStatementValues = array ())
+	public function getData ($query, $associative = false, $keyed = true, $preparedStatementValues = array (), $onlyFields = array ())
 	{
 		# Global the query and any values
 		$this->query = $query;
@@ -298,8 +298,62 @@ class database
 			$data = $newData;
 		}
 		
+		# Filter only to specified fields if required
+		if ($onlyFields) {
+			foreach ($data as $index => $record) {
+				foreach ($record as $key => $value) {
+					if (!in_array ($key, $onlyFields)) {
+						unset ($data[$index][$key]);
+					}
+				}
+			}
+		}
+		
 		# Return the array
 		return $data;
+	}
+	
+	
+	# Function to do getData via pagination
+	public function getDataViaPagination ($query, $associative = false, $keyed = true, $preparedStatementValues = array (), $onlyFields = array (), $paginationRecordsPerPage, $page = 1, $searchResultsMaximumLimit = false)
+	{
+		# Prepare the counting query; use a negative look-around to match the section between SELECT ... FROM - see http://stackoverflow.com/questions/406230
+		$placeholders = array (
+			'/^SELECT (?! FROM ).+ FROM/' => 'SELECT COUNT(*) AS total FROM',
+			'/;$/' => ';',
+		);
+		$countingQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), $query);
+		
+		# Perform a count first
+		$dataCount = $this->getOne ($countingQuery);
+		$totalAvailable = $dataCount['total'];
+		
+		# Enforce a maximum limit if required, by overwriting the total available, which the pagination mechanism will automatically adjust to
+		$actualMatchesReachedMaximum = false;
+		if ($searchResultsMaximumLimit) {
+			if ($totalAvailable > $searchResultsMaximumLimit) {
+				$actualMatchesReachedMaximum = $totalAvailable;	// Assign the number of the actual total available, which will evaluate to true
+				$totalAvailable = $searchResultsMaximumLimit;
+			}
+		}
+		
+		# Get the requested page and calculate the pagination
+		require_once ('application.php');
+		$requestedPage = (ctype_digit ($page) ? $page : 1);
+		list ($totalPages, $offset, $items, $limitPerPage, $page) = application::getPagerData ($totalAvailable, $paginationRecordsPerPage, $requestedPage);
+		
+		# Now construct the main query
+		$placeholders = array (
+			'/^SELECT (?! FROM ).+ FROM/' => 'SELECT * FROM',
+			'/;$/' => " LIMIT {$offset}, {$limitPerPage};",
+		);
+		$dataQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), $query);
+		
+		# Get the data
+		$data = $this->getData ($dataQuery, $associative, $keyed, $preparedStatementValues, $onlyFields);
+		
+		# Return the data and metadata
+		return array ($data, $totalAvailable, $totalPages, $page, $actualMatchesReachedMaximum);
 	}
 	
 	
@@ -586,23 +640,6 @@ class database
 		#!# This could be unset if it's associative
 		#!# http://bugs.mysql.com/36824 could result in a value slipping through that is not strictly matched
 		return $data[0];
-	}
-	
-	
-	# Function to construct and execute a SELECT statement and return a CSV file stream
-	public function selectCsv ($filenameBase, $database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false)
-	{
-		# Pass the data straight through
-		$data = $this->select ($database, $table, $conditions, $columns, $associative, $orderBy);
-		
-		# Convert to CSV
-		require_once ('csv.php');
-		$csv = csv::dataToCsv ($data);
-		
-		# Publish, by sending a header and then echoing the data
-		header ('Content-type: application/octet-stream');
-		header ('Content-Disposition: attachment; filename="' . $filenameBase . '.csv"');
-		echo $csv;
 	}
 	
 	

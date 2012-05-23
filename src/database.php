@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.1.2+cyclestreets-clearPreparedStatement
+ * Version 2.1.3+cyclestreets-clearPreparedStatement
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1242,6 +1242,28 @@ class database
 	function trimSql ($fieldname)
 	{
 		return "TRIM( LEADING '\"' FROM TRIM( LEADING \"'\" FROM TRIM( LEADING 'a ' FROM TRIM( LEADING 'an ' FROM TRIM( LEADING 'the ' FROM LOWER( `{$fieldname}` ) ) ) ) ) )";
+	}
+	
+	
+	# Function to execute SQL into MySQL
+	public function runSql ($settings, $input, $isFile = true)
+	{
+		# Determine the input
+		if ($isFile) {
+			$input = "< \"{$input}\"";
+		} else {
+			// $input = "-e \"{$input}\"";
+			$input = '-e "' . str_replace ('"', '\\"', $input) . '"';
+		}
+		
+		# Compile the command
+		$command = "mysql --max_allowed_packet=1000M --local-infile=1 -h {$settings['hostname']} -u {$settings['username']} --password={$settings['password']} {$settings['database']} {$input}";
+		
+		# Execute the command
+		$output = shell_exec ($command);
+		
+		# Return the output
+		return $output;
 	}
 }
 

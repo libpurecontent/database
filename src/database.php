@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.1.3+cyclestreets-clearPreparedStatement
+ * Version 2.1.4+cyclestreets-clearPreparedStatement
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -320,9 +320,8 @@ class database
 		# Prepare the counting query; use a negative look-around to match the section between SELECT ... FROM - see http://stackoverflow.com/questions/406230
 		$placeholders = array (
 			'/^SELECT (?! FROM ).+ FROM/' => 'SELECT COUNT(*) AS total FROM',
-			'/;$/' => ';',
 		);
-		$countingQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), $query);
+		$countingQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), trim ($query));
 		
 		# Perform a count first
 		$dataCount = $this->getOne ($countingQuery);
@@ -344,10 +343,9 @@ class database
 		
 		# Now construct the main query
 		$placeholders = array (
-			'/^SELECT (?! FROM ).+ FROM/' => 'SELECT * FROM',
 			'/;$/' => " LIMIT {$offset}, {$limitPerPage};",
 		);
-		$dataQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), $query);
+		$dataQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), trim ($query));
 		
 		# Get the data
 		$data = $this->getData ($dataQuery, $associative, $keyed, $preparedStatementValues, $onlyFields);

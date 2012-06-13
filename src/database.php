@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.1.4+cyclestreets-clearPreparedStatement
+ * Version 2.1.5+cyclestreets-clearPreparedStatement
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -317,7 +317,7 @@ class database
 	# Function to do getData via pagination
 	public function getDataViaPagination ($query, $associative = false, $keyed = true, $preparedStatementValues = array (), $onlyFields = array (), $paginationRecordsPerPage, $page = 1, $searchResultsMaximumLimit = false)
 	{
-		# Prepare the counting query; use a negative look-around to match the section between SELECT ... FROM - see http://stackoverflow.com/questions/406230
+		# Prepare the counting query; use a negative lookahead to match the section between SELECT ... FROM - see http://stackoverflow.com/questions/406230
 		$placeholders = array (
 			'/^SELECT (?! FROM ).+ FROM/' => 'SELECT COUNT(*) AS total FROM',
 		);
@@ -372,7 +372,7 @@ class database
 	
 	
 	# Function to get fields
-	public function getFields ($database, $table, $addSimpleType = false)
+	public function getFields ($database, $table, $addSimpleType = false, $matchingRegexp = false)
 	{
 		# Cache the global query and its values, if either exist, so that they can be reinstated when this function is called by another function internally
 		$cachedQuery = ($this->query ? $this->query : NULL);
@@ -405,6 +405,15 @@ class database
 				$fields[$attributes['Field']]['_values'] = explode ("','", $matches[1]);
 			} else {
 				$fields[$attributes['Field']]['_values'] = NULL;
+			}
+		}
+		
+		# Filter by regexp if required
+		if ($matchingRegexp) {
+			foreach ($fields as $field => $attributes) {
+				if (!preg_match ("/{$matchingRegexp}/", $field)) {
+					unset ($fields[$field]);
+				}
 			}
 		}
 		
@@ -454,10 +463,10 @@ class database
 	
 	
 	# Function to get field names
-	public function getFieldNames ($database, $table, $fields = false)
+	public function getFieldNames ($database, $table, $fields = false, $matchingRegexp = false)
 	{
 		# Get the fields if not already supplied
-		if (!$fields) {$fields = $this->getFields ($database, $table);}
+		if (!$fields) {$fields = $this->getFields ($database, $table, false, $matchingRegexp);}
 		
 		# Get the array keys of the fields
 		return array_keys ($fields);

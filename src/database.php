@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.1.5+cyclestreets-clearPreparedStatement
+ * Version 2.1.6
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -18,15 +18,6 @@ class database
 	private $preparedStatement = NULL;
 	private $query = NULL;
 	private $queryValues = NULL;
-	
-	
-	// !! This setter is a work-around for the error() function, and is needed by CycleStreets.
-	// The work around is to reset this variable to NULL for non-prep statement calls to e.g. getData().
-	// See http://dev.cyclestreets.net/ticket/509
-	public function clearPreparedStatement ()
-	{
-		$this->preparedStatement = NULL;
-	}
 	
 	
 	# Function to connect to the database
@@ -105,6 +96,7 @@ class database
 		}
 		
 		# If using prepared statements, prepare then execute
+		$this->preparedStatement = NULL;	// Always clear to avoid the error() function returning results of a previous statement
 		if ($preparedStatementValues) {
 			
 			# Execute the statement (ending if there is an error in the query or parameters)
@@ -244,6 +236,7 @@ class database
 		$mode = ($keyed ? PDO::FETCH_ASSOC : PDO::FETCH_NUM);
 		
 		# If using prepared statements, prepare then execute
+		$this->preparedStatement = NULL;	// Always clear to avoid the error() function returning results of a previous statement
 		if ($preparedStatementValues) {
 			
 			# Execute the statement (ending if there is an error in the query or parameters)

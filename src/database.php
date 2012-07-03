@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.1.6
+ * Version 2.1.7
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -412,6 +412,15 @@ class database
 		
 		# Return the result
 		return $fields;
+	}
+	
+	
+	# Function to determine if the data is hierarchical
+	public function isHierarchical ($database, $table)
+	{
+		# Determine if there is a parentId field and return whether it is present
+		$fields = $this->getFields ($database, $table);
+		return (isSet ($fields['parentId']));
 	}
 	
 	
@@ -1001,13 +1010,13 @@ class database
 	
 	# Define a lookup function used to join fields in the format fieldname__JOIN__targetDatabase__targetTable__reserved
 	#!# Caching mechanism needed for repeated fields (and fieldnames as below), one level higher in the calling structure
-	public function lookup ($databaseConnection, $fieldname, $fieldType, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array ())
+	public function lookup ($databaseConnection, $fieldname, $fieldType, $simpleJoin = false, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array ())
 	{
 		# Determine if it's a special JOIN field
 		$values = array ();
 		$targetDatabase = NULL;
 		$targetTable = NULL;
-		if ($matches = self::convertJoin ($fieldname)) {
+		if ($matches = self::convertJoin ($fieldname, $simpleJoin)) {
 			
 			# Load required libraries
 			require_once ('application.php');
@@ -1118,15 +1127,43 @@ class database
 	
 	
 	# Function to convert joins
-	public function convertJoin ($fieldname)
+	public function convertJoin ($fieldname, $simpleJoin = false /* or array(currentDatabase,currentTable,array(tables)) */)
 	{
-		# Return if matched
-		if (ereg ('^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([-_a-zA-Z0-9]+)__reserved$', $fieldname, $matches)) {
-			return array (
-				'field' => $matches[1],
-				'database' => $matches[2],
-				'table' => $matches[3],
-			);
+		# Simple join mode, e.g. targetId joins to database=$simpleJoin[0],table=target, and the field is fixed as 'id'
+		if ($simpleJoin) {
+			if (preg_match ('/^([a-zA-Z0-9]+)Id$/', $fieldname, $matches)) {
+				list ($currentDatabase, $currentTable, $tables) = $simpleJoin;
+				
+				# Determine the target table
+				switch (true) {
+					case ($matches[1] == 'parent'):	// Special-case: if field is 'parentId' then treat as self-join to current table
+						$table = $currentTable;
+						break;
+					case (in_array ($matches[1] . 's', $tables)):	// Simple pluraliser, e.g. for a field 'caseId' look for a table 'cases'; if not present, it will assume 'case'
+						$table = $matches[1] . 's';
+						break;
+					default:
+						$table = $matches[1];
+						break;
+				}
+				
+				# Return the result
+				return array (
+					'field' => 'id',	// Fixed - nothing to do with the supplied fieldname ending 'Id'
+					'database' => $currentDatabase,
+					'table' => $table,
+				);
+			}
+			
+		# Otherwise use the fieldname__JOIN__table__database__reserved format
+		} else {
+			if (preg_match ('/^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([-_a-zA-Z0-9]+)__reserved$/', $fieldname, $matches)) {
+				return array (
+					'field' => $matches[1],
+					'database' => $matches[2],
+					'table' => $matches[3],
+				);
+			}
 		}
 		
 		# Otherwise return false;

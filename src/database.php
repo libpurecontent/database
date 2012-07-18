@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.1.7
+ * Version 2.1.8
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -982,6 +982,66 @@ class database
 		
 		# Return the results
 		return $attributes;
+	}
+	
+	
+	# Function to truncate a table
+	public function truncate ($database, $table, $limitedPrivilegesAvailable = false)
+	{
+		# Determine the query
+		if ($limitedPrivilegesAvailable) {
+			$query = "DELETE FROM {$database}.{$table};";	// i.e. delete everything
+		} else {
+			$query = "TRUNCATE {$database}.{$table};";
+		}
+		
+		# Run the query, capturing the rows changed
+		$rows = $this->query ($query);
+		
+		# Determine the result
+		$result = ($rows !== false);
+		
+		# Log the change
+		$this->logChange ($result);
+		
+		# Return the result
+		return $result;
+	}
+	
+	
+	# Function to set the table comment
+	public function setTableComment ($database, $table, $tableComment, &$error = false)
+	{
+		# Ensure the string length is up to 60 characters long, as defined at: http://dev.mysql.com/doc/refman/5.1/en/create-table.html
+		$maxLength = 60;	// Obviously this is currently MySQL-specific implementation
+		if (strlen ($tableComment) > $maxLength) {
+			$error = "The table comment must not be longer than {$maxLength} characters.";
+			return false;
+		}
+		
+		# Compile the query
+		$query = "ALTER TABLE {$database}.{$table} COMMENT = '{$tableComment}';";	// Requires ALTER privilege
+		
+		# Run the query, capturing the rows changed
+		$rows = $this->query ($query);
+		
+		# Determine the result
+		$result = ($rows !== false);
+		
+		# Log the change
+		$this->logChange ($result);
+		
+		# Return the result
+		return $result;
+	}
+	
+	
+	# Function to get the table comment
+	public function getTableComment ($database, $table)
+	{
+		# Get the table status and return the comment part
+		if (!$tableStatus = $this->getTableStatus ($database, $table, array ('Comment'))) {return false;}
+		return $tableStatus['Comment'];
 	}
 	
 	

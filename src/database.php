@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.1.8
+ * Version 2.1.9
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1070,12 +1070,13 @@ class database
 	
 	# Define a lookup function used to join fields in the format fieldname__JOIN__targetDatabase__targetTable__reserved
 	#!# Caching mechanism needed for repeated fields (and fieldnames as below), one level higher in the calling structure
-	public function lookup ($databaseConnection, $fieldname, $fieldType, $simpleJoin = false, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array ())
+	public function lookup ($databaseConnection, $fieldname, $fieldType, $simpleJoin = false, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array (), $tableMonikerTranslations = array ())
 	{
 		# Determine if it's a special JOIN field
 		$values = array ();
 		$targetDatabase = NULL;
 		$targetTable = NULL;
+		$targetTableMoniker = NULL;
 		if ($matches = self::convertJoin ($fieldname, $simpleJoin)) {
 			
 			# Load required libraries
@@ -1085,6 +1086,9 @@ class database
 			$fieldname = $matches['field'];
 			$targetDatabase = $matches['database'];
 			$targetTable = $matches['table'];
+			
+			# Determine the table moniker for the target table, which is normally the same; this is useful if the client application has a table such as 'fooNames' but this maps to a nicer URL of 'foo'
+			$targetTableMoniker = ($tableMonikerTranslations && isSet ($tableMonikerTranslations[$targetTable]) ? $tableMonikerTranslations[$targetTable] : $targetTable);
 			
 			# Get the fields of the target table
 			$fields = $databaseConnection->getFieldNames ($targetDatabase, $targetTable);
@@ -1105,7 +1109,7 @@ class database
 			#!# Enable recursive lookups
 			$query = "SELECT * FROM {$targetDatabase}.{$targetTable}{$orderbySql};";
 			if (!$data = $databaseConnection->getData ($query, "{$targetDatabase}.{$targetTable}")) {
-				return array ($fieldname, array (), $targetDatabase, $targetTable);
+				return array ($fieldname, array (), $targetDatabase, $targetTableMoniker);
 			}
 			
 			# Sort
@@ -1182,7 +1186,7 @@ class database
 		}
 		
 		# Return the field name and the lookup values
-		return array ($fieldname, $values, $targetDatabase, $targetTable);
+		return array ($fieldname, $values, $targetDatabase, $targetTableMoniker);
 	}
 	
 	

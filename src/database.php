@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.1.9
+ * Version 2.2.0
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -18,6 +18,7 @@ class database
 	private $preparedStatement = NULL;
 	private $query = NULL;
 	private $queryValues = NULL;
+	private $strictWhere = false;
 	
 	
 	# Function to connect to the database
@@ -65,6 +66,13 @@ class database
 	{
 		# Close the connection
 		$this->connection = NULL;
+	}
+	
+	
+	# Function to enable whether automatically-constructed WHERE=... clauses do proper, exact comparisons, so that id="1 x" doesn't match against id value 1 in the database
+	public function setStrictWhere ($boolean = true)
+	{
+		$this->strictWhere = $boolean;
 	}
 	
 	
@@ -595,7 +603,7 @@ class database
 		if ($conditions) {
 			$where = array ();
 			foreach ($conditions as $key => $value) {
-				$where[] = '`' . $key . '`' . ' = :' . $key;
+				$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '`' . ' = :' . $key;
 			}
 			$where = ' WHERE ' . implode (' AND ', $where);
 		}
@@ -829,7 +837,7 @@ class database
 			$where = array ();
 			foreach ($conditions as $key => $value) {
 				$placeholder = 'conditions_' . $key;	// The prefix ensures namespaced uniqueness within $dataUniqued
-				$where[] = '`' . $key . '` = :' . $placeholder;
+				$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '` = :' . $placeholder;
 				
 				# Save the data using the new placeholder
 				$dataUniqued[$placeholder] = $value;
@@ -874,7 +882,7 @@ class database
 		if ($conditions) {
 			$where = array ();
 			foreach ($conditions as $key => $value) {
-				$where[] = '`' . $key . '`' . ' = :' . $key;
+				$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '`' . ' = :' . $key;
 			}
 			$where = ' WHERE ' . implode (' AND ', $where);
 		}
@@ -914,7 +922,7 @@ class database
 		}
 		
 		# Assemble the query
-		$query = "DELETE FROM `{$database}`.`{$table}` WHERE `{$field}` IN (" . implode (', ', $placeholders) . ");";
+		$query = "DELETE FROM `{$database}`.`{$table}` WHERE " . ($this->strictWhere ? 'BINARY ' : '') . "`{$field}` IN (" . implode (', ', $placeholders) . ");";
 		
 		# Execute the query
 		$rows = $this->execute ($query, $placeholderValues);

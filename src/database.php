@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.2.0
+ * Version 2.2.1
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -603,7 +603,11 @@ class database
 		if ($conditions) {
 			$where = array ();
 			foreach ($conditions as $key => $value) {
-				$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '`' . ' = :' . $key;
+				if ($value === NULL) {		// Has to be set with a real NULL value, i.e. using $conditions['keyname'] = NULL;
+					$where[] = '`' . $key . '`' . ' IS NULL';
+				} else {
+					$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '`' . ' = :' . $key;
+				}
 			}
 			$where = ' WHERE ' . implode (' AND ', $where);
 		}

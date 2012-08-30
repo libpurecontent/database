@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.2.2
+ * Version 2.2.3
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -208,6 +208,17 @@ class database
 		# Get the data
 		$data = $this->getData ($query, false, $keyed = false, $preparedStatementValues);
 		
+		# Convert to pairs
+		$pairs = $this->toPairs ($data, $trimAndUnique);
+		
+		# Return the data
+		return $pairs;
+	}
+	
+	
+	# Helper function to convert data to pairs
+	private function toPairs ($data, $trimAndUnique = true)
+	{
 		# Arrange the data into key/value pairs
 		$pairs = array ();
 		foreach ($data as $key => $item) {
@@ -596,7 +607,7 @@ class database
 	
 	
 	# Function to construct and execute a SELECT statement
-	public function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false, $limit = false)
+	public function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false, $limit = false, $keyed = true)
 	{
 		# Construct the WHERE clause
 		$where = '';
@@ -605,6 +616,14 @@ class database
 			foreach ($conditions as $key => $value) {
 				if ($value === NULL) {		// Has to be set with a real NULL value, i.e. using $conditions['keyname'] = NULL;
 					$where[] = '`' . $key . '`' . ' IS NULL';
+				} else if (is_array ($value)) {
+					$i = 0;
+					foreach ($value as $valueItem) {
+						$valuesKey = $key . '_' . $i++;	// e.g. id_0, id_1, etc.; a numeric index is created as the values list might be associative with keys containing invalid characters
+						$conditions[$valuesKey] = $valueItem;
+					}
+					unset ($conditions[$key]);	// Remove the original placeholder as that will never be used, and contains an array
+					$where[] = '`' . $key . '`' . ' IN(:' . implode (', :', array_keys ($conditions)) . ')';
 				} else {
 					$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '`' . ' = :' . $key;
 				}
@@ -640,7 +659,7 @@ class database
 		$query = "SELECT {$what} FROM `{$database}`.`{$table}`{$where}{$orderBy}{$limit};\n";
 		
 		# Get the data
-		$data = $this->getData ($query, ($associative ? "{$database}.{$table}" : false), true, $conditions);
+		$data = $this->getData ($query, ($associative ? "{$database}.{$table}" : false), $keyed, $conditions);
 		
 		# Return the data
 		return $data;
@@ -661,6 +680,21 @@ class database
 		#!# This could be unset if it's associative
 		#!# http://bugs.mysql.com/36824 could result in a value slipping through that is not strictly matched
 		return $data[0];
+	}
+	
+	
+	# Function to select data and return as pairs
+	public function selectPairs ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false, $limit = false)
+	{
+		# Get the data, unkeyed (so that each record contains array(0=>value,1=>2)) (which therefore requires associative=false
+		$associative = false;
+		$data = $this->select ($database, $table, $conditions, $columns, $associative, $orderBy, $limit, $keyed = false);
+		
+		# Convert to pairs
+		$pairs = $this->toPairs ($data);
+		
+		# Return the data
+		return $pairs;
 	}
 	
 	
@@ -1244,6 +1278,63 @@ class database
 		
 		# Otherwise return false;
 		return false;
+	}
+	
+	
+	# Function to substitute lookup values for their names
+	public function substituteJoinedData ($data, $database, $table /* for targetId fieldname format, or false to use older format, i.e. fieldname__JOIN__databasename__tablename__reserved */, $nameField = 'name')
+	{
+		# If no data, return the value unchanged
+		if (!$data) {return $data;}
+		
+		# Determine whether to use the simple join method, and if so assemble the simpleJoin parameter
+		$simpleJoin = false;
+		if ($table) {
+			$tables = $this->getTables ($database);
+			$simpleJoin = array ($database, $table, $tables);
+		}
+		
+		# Get the fields in the current dataset
+		$fields = array_keys (reset ($data));
+		
+		# Determine which fields are lookups
+		$lookupFields = array ();
+		foreach ($fields as $field) {
+			if ($matches = $this->convertJoin ($field, $simpleJoin)) {
+				$lookupFields[$field] = $matches['table'];
+			}
+		}
+		
+		# Take no further action if no fields are lookups
+		if (!$lookupFields) {return $data;}
+		
+		# Get the values in use for each of the lookup fields in the data
+		$lookupValues = array ();
+		foreach ($lookupFields as $field => $table) {
+			foreach ($data as $key => $record) {
+				$lookupValues[$field][] = $record[$field];
+			}
+			$lookupValues[$field] = array_unique ($lookupValues[$field]);
+		}
+		
+		# Lookup the values
+		$lookupResults = array ();
+		foreach ($lookupValues as $field => $values) {
+			$lookupResults[$field] = $this->selectPairs ($database, $lookupFields[$field], array ('id' => $values), array ('id', $nameField));
+		}
+		
+		# Substitute in the values, retaining the originals where no lookup exists
+		foreach ($data as $key => $record) {
+			foreach ($lookupResults as $field => $lookups) {
+				if (array_key_exists ($record[$field], $lookups)) {
+					$lookedUpValue = $record[$field];
+					$data[$key][$field] = $lookups[$lookedUpValue];
+				}
+			}
+		}
+		
+		# Return the amended data
+		return $data;
 	}
 	
 	

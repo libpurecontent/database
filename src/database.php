@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.2.3
+ * Version 2.2.4
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -336,7 +336,7 @@ class database
 		$countingQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), trim ($query));
 		
 		# Perform a count first
-		$dataCount = $this->getOne ($countingQuery);
+		$dataCount = $this->getOne ($countingQuery, false, true, $preparedStatementValues);
 		$totalAvailable = $dataCount['total'];
 		
 		# Enforce a maximum limit if required, by overwriting the total available, which the pagination mechanism will automatically adjust to
@@ -586,23 +586,26 @@ class database
 	
 	
 	# Function to deal with quotation, i.e. escaping AND adding quotation marks around the item
-	/* private */ public function quote ($data)
+	/* private */ public function quote ($string)
 	{
 		# Strip slashes if necessary
 		if (get_magic_quotes_gpc ()) {
-			$data = stripslashes ($data);
+			$string = stripslashes ($string);
 		}
 		
 		# Special case a timestamp indication as unquoted SQL
-		if ($data == 'NOW()') {
-			return $data;
+		if ($string == 'NOW()') {
+			return $string;
 		}
 		
-		# Quote string by calling the PDO quoting method
-		$data = $this->connection->quote ($data);
+		# Quote the string by calling the PDO quoting method
+		$string = $this->connection->quote ($string);
 		
-		# Return the data
-		return $data;
+		# Undo (unwanted automatic) backlash quoting in PDO::quote, i.e replace \\ with \ in the string; see discussion at http://www.bitpapers.com/2012/03/php-escaping-quotes.html
+		$string = str_replace ('\\\\', '\\', $string);
+		
+		# Return the quoted string
+		return $string;
 	}
 	
 	
@@ -1415,27 +1418,40 @@ class database
 			return $this->query;
 		}
 		
-		# Add colons to each and quote the values, dealing with special cases like NULL and NOW()
+		# Determine whether the query uses named parameters (see http://www.php.net/pdo.prepared-statements ) rather than ?
+		$usingNamedParameters = (!substr_count ($this->query, '?'));
+		
+		# Add colons to each (where necessary) and, where necessary, quote the values, dealing with special cases like NULL and NOW()
 		$values = array ();
 		foreach ($this->queryValues as $key => $value) {
-			$colonedKey = ':' . $key;
+			if ($usingNamedParameters) {
+				$key = ':' . $key;
+			}
 			switch (true) {
+				case ctype_digit ($value):
+					$values[$key] = $value;
+					break;
 				case is_null ($value):
-					$values[$colonedKey] = 'NULL';
+					$values[$key] = 'NULL';
 					break;
 				case $value == 'NOW()':
-					$values[$colonedKey] = 'NOW()';
+					$values[$key] = 'NOW()';
 					break;
 				default:
-					$values[$colonedKey] = $this->quote ($value);
+					$values[$key] = $this->quote ($value);
 			}
 		}
 		
-		# Sort by key reversed, so that longer key names come first to avoid overlapping replacements
-		krsort ($values);
-		
 		# Do replacement
-		$query = strtr ($this->query, $values);
+		if ($usingNamedParameters) {
+			krsort ($values);	// Sort by key reversed, so that longer key names come first to avoid overlapping replacements
+			$query = strtr ($this->query, $values);
+		} else {
+			$query = $this->query;
+			foreach ($values as $value) {
+				$query = preg_replace ('/\?/', str_replace ('\\', '\\\\', $value), $query, 1);	// Do replacement of each ? in order, using the limit=1 technique as per http://stackoverflow.com/questions/4863863 ; the str_replace must be used to replace a literal backslash \ to \\ in the replacement string
+			}
+		}
 		
 		# Return the query
 		return $query;

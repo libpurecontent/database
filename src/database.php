@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.2.5
+ * Version 2.2.6
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -616,22 +616,33 @@ class database
 		$where = '';
 		if ($conditions) {
 			$where = array ();
-			foreach ($conditions as $key => $value) {
-				if ($value === NULL) {		// Has to be set with a real NULL value, i.e. using $conditions['keyname'] = NULL;
-					$where[] = '`' . $key . '`' . ' IS NULL';
-				} else if (is_array ($value)) {
-					$i = 0;
-					foreach ($value as $valueItem) {
-						$valuesKey = $key . '_' . $i++;	// e.g. id_0, id_1, etc.; a numeric index is created as the values list might be associative with keys containing invalid characters
-						$conditions[$valuesKey] = $valueItem;
+			if (is_array ($conditions)) {
+				foreach ($conditions as $key => $value) {
+					if ($value === NULL) {		// Has to be set with a real NULL value, i.e. using $conditions['keyname'] = NULL;
+						$where[] = '`' . $key . '`' . ' IS NULL';
+					} else if (is_array ($value)) {
+						$i = 0;
+						foreach ($value as $valueItem) {
+							$valuesKey = $key . '_' . $i++;	// e.g. id_0, id_1, etc.; a numeric index is created as the values list might be associative with keys containing invalid characters
+							$conditions[$valuesKey] = $valueItem;
+						}
+						unset ($conditions[$key]);	// Remove the original placeholder as that will never be used, and contains an array
+						$where[] = '`' . $key . '`' . ' IN(:' . implode (', :', array_keys ($conditions)) . ')';
+					} else {
+						$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '`' . ' = :' . $key;
 					}
-					unset ($conditions[$key]);	// Remove the original placeholder as that will never be used, and contains an array
-					$where[] = '`' . $key . '`' . ' IN(:' . implode (', :', array_keys ($conditions)) . ')';
-				} else {
-					$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '`' . ' = :' . $key;
+				}
+			} else if (is_string ($conditions)) {
+				if (strlen ($conditions)) {
+					$where[] = $conditions;
+					$conditions = array ();	// Remove these, as there are no prepared statement values
 				}
 			}
-			$where = ' WHERE ' . implode (' AND ', $where);
+			if ($where) {
+				$where = ' WHERE ' . implode (' AND ', $where);
+			} else {
+				$where = '';
+			}
 		}
 		
 		# Construct the columns part; if the key is numeric, assume it's not a key=>value pair, but that the value is the fieldname

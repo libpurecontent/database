@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.2.6
+ * Version 2.2.7
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -331,7 +331,7 @@ class database
 	{
 		# Prepare the counting query; use a negative lookahead to match the section between SELECT ... FROM - see http://stackoverflow.com/questions/406230
 		$placeholders = array (
-			'/^SELECT (?! FROM ).+ FROM/' => 'SELECT COUNT(*) AS total FROM',
+			'/^SELECT (?!\s+FROM ).+\s+FROM/' => 'SELECT COUNT(*) AS total FROM',
 		);
 		$countingQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), trim ($query));
 		

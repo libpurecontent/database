@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.2.7
+ * Version 2.2.8
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -331,12 +331,21 @@ class database
 	{
 		# Prepare the counting query; use a negative lookahead to match the section between SELECT ... FROM - see http://stackoverflow.com/questions/406230
 		$placeholders = array (
-			'/^SELECT (?!\s+FROM ).+\s+FROM/' => 'SELECT COUNT(*) AS total FROM',
+			'/^\s*SELECT\s+(?!\s+FROM\s).+\s+FROM/misU' => 'SELECT COUNT(*) AS total FROM',
+			# This works but isn't in use anywhere, so enable if/when needed with more testing '/^SELECT\s+DISTINCT\(([^)]+)\)\s+(?!\s+FROM ).+\s+FROM/' => 'SELECT COUNT(DISTINCT(\1)) AS total FROM',
 		);
 		$countingQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), trim ($query));
 		
+		# If any named placeholders are not now in the counting query, remove them from the list
+		$countingPreparedStatementValues = $preparedStatementValues;
+		foreach ($countingPreparedStatementValues as $key => $value) {
+			if (substr_count ($query, ':' . $key) && !substr_count ($countingQuery, ':' . $key)) {
+				unset ($countingPreparedStatementValues[$key]);
+			}
+		}
+		
 		# Perform a count first
-		$dataCount = $this->getOne ($countingQuery, false, true, $preparedStatementValues);
+		$dataCount = $this->getOne ($countingQuery, false, true, $countingPreparedStatementValues);
 		$totalAvailable = $dataCount['total'];
 		
 		# Enforce a maximum limit if required, by overwriting the total available, which the pagination mechanism will automatically adjust to
@@ -622,12 +631,14 @@ class database
 						$where[] = '`' . $key . '`' . ' IS NULL';
 					} else if (is_array ($value)) {
 						$i = 0;
+						$conditionsThisGroup = array ();
 						foreach ($value as $valueItem) {
 							$valuesKey = $key . '_' . $i++;	// e.g. id_0, id_1, etc.; a numeric index is created as the values list might be associative with keys containing invalid characters
 							$conditions[$valuesKey] = $valueItem;
+							$conditionsThisGroup[$valuesKey] = $valueItem;
 						}
 						unset ($conditions[$key]);	// Remove the original placeholder as that will never be used, and contains an array
-						$where[] = '`' . $key . '`' . ' IN(:' . implode (', :', array_keys ($conditions)) . ')';
+						$where[] = '`' . $key . '`' . ' IN(:' . implode (', :', array_keys ($conditionsThisGroup)) . ')';
 					} else {
 						$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '`' . ' = :' . $key;
 					}
@@ -1472,7 +1483,7 @@ class database
 	# Function to do sort trimming of a field name, to be put in an ORDER BY clause
 	function trimSql ($fieldname)
 	{
-		return "TRIM( LEADING '\"' FROM TRIM( LEADING \"'\" FROM TRIM( LEADING 'a ' FROM TRIM( LEADING 'an ' FROM TRIM( LEADING 'the ' FROM LOWER( `{$fieldname}` ) ) ) ) ) )";
+		return "TRIM( LEADING '{' FROM TRIM( LEADING '}' FROM TRIM( LEADING '(' FROM TRIM( LEADING '[' FROM TRIM( LEADING '\"' FROM TRIM( LEADING \"'\" FROM TRIM( LEADING '@' FROM TRIM( LEADING 'a ' FROM TRIM( LEADING 'an ' FROM TRIM( LEADING 'the ' FROM LOWER( `{$fieldname}` ) ) ) ) ) ) ) ) ) ) )";
 	}
 	
 	

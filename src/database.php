@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.2.8
+ * Version 2.2.9
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -219,7 +219,7 @@ class database
 	# Helper function to convert data to pairs
 	private function toPairs ($data, $trimAndUnique = true)
 	{
-		# Arrange the data into key/value pairs
+		# Arrange the data into key/value pairs; if more than one item, use the first two in the list as the key and value
 		$pairs = array ();
 		foreach ($data as $key => $item) {
 			foreach ($item as $field => $value) {
@@ -358,9 +358,9 @@ class database
 		}
 		
 		# Get the requested page and calculate the pagination
-		require_once ('application.php');
+		require_once ('pagination.php');
 		$requestedPage = (ctype_digit ($page) ? $page : 1);
-		list ($totalPages, $offset, $items, $limitPerPage, $page) = application::getPagerData ($totalAvailable, $paginationRecordsPerPage, $requestedPage);
+		list ($totalPages, $offset, $items, $limitPerPage, $page) = pagination::getPagerData ($totalAvailable, $paginationRecordsPerPage, $requestedPage);
 		
 		# Now construct the main query
 		$placeholders = array (
@@ -1139,7 +1139,7 @@ class database
 	}
 	
 	
-	# Define a lookup function used to join fields in the format fieldname__JOIN__targetDatabase__targetTable__reserved
+	# Define a lookup function used to join fields in the format targettableId fieldname__JOIN__targetDatabase__targetTable__reserved
 	#!# Caching mechanism needed for repeated fields (and fieldnames as below), one level higher in the calling structure
 	public function lookup ($databaseConnection, $fieldname, $fieldType, $simpleJoin = false, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array (), $tableMonikerTranslations = array ())
 	{

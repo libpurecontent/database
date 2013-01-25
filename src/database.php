@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-12
- * Version 2.2.9
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
+ * Version 2.2.10
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -19,6 +19,7 @@ class database
 	private $query = NULL;
 	private $queryValues = NULL;
 	private $strictWhere = false;
+	private $fieldsCache = array ();
 	
 	
 	# Function to connect to the database
@@ -393,19 +394,28 @@ class database
 	
 	
 	# Function to get fields
-	public function getFields ($database, $table, $addSimpleType = false, $matchingRegexp = false)
+	public function getFields ($database, $table, $addSimpleType = false, $matchingRegexpNoForwardSlashes = false, $asTotal = false)
 	{
-		# Cache the global query and its values, if either exist, so that they can be reinstated when this function is called by another function internally
-		$cachedQuery = ($this->query ? $this->query : NULL);
-		$cachedQueryValues = (!is_null ($this->queryValues) ? $this->queryValues : NULL);
-		
-		# Get the data
-		$query = "SHOW FULL FIELDS FROM `{$database}`.`{$table}`;";
-		$data = $this->getData ($query);
-		
-		# Restablish the catched query and its values if there is one
-		if (!is_null ($cachedQuery)) {$this->query = $cachedQuery;}
-		if (!is_null ($cachedQuery)) {$this->queryValues = $cachedQueryValues;}
+		# If the raw fields list is already in the fields cache, use that to avoid a pointless SHOW FULL FIELDS lookup
+		if (isSet ($this->fieldsCache[$database]) && isSet ($this->fieldsCache[$database][$table])) {
+			$data = $this->fieldsCache[$database][$table];
+		} else {
+			
+			# Cache the global query and its values, if either exist, so that they can be reinstated when this function is called by another function internally
+			$cachedQuery = ($this->query ? $this->query : NULL);
+			$cachedQueryValues = (!is_null ($this->queryValues) ? $this->queryValues : NULL);
+			
+			# Get the data
+			$query = "SHOW FULL FIELDS FROM `{$database}`.`{$table}`;";
+			$data = $this->getData ($query);
+			
+			# Restablish the catched query and its values if there is one
+			if (!is_null ($cachedQuery)) {$this->query = $cachedQuery;}
+			if (!is_null ($cachedQuery)) {$this->queryValues = $cachedQueryValues;}
+			
+			# Add the result to the fields cache, in case there is another request for getFields for this database table
+			$this->fieldsCache[$database][$table] = $data;
+		}
 		
 		# Convert the field name to be the key name
 		$fields = array ();
@@ -430,12 +440,17 @@ class database
 		}
 		
 		# Filter by regexp if required
-		if ($matchingRegexp) {
+		if ($matchingRegexpNoForwardSlashes) {
 			foreach ($fields as $field => $attributes) {
-				if (!preg_match ("/{$matchingRegexp}/", $field)) {
+				if (!preg_match ("/{$matchingRegexpNoForwardSlashes}/", $field)) {
 					unset ($fields[$field]);
 				}
 			}
+		}
+		
+		# If returning as a total, convert to a count
+		if ($asTotal) {
+			$fields = count ($fields);
 		}
 		
 		# Return the result
@@ -493,10 +508,10 @@ class database
 	
 	
 	# Function to get field names
-	public function getFieldNames ($database, $table, $fields = false, $matchingRegexp = false)
+	public function getFieldNames ($database, $table, $fields = false, $matchingRegexpNoForwardSlashes = false)
 	{
 		# Get the fields if not already supplied
-		if (!$fields) {$fields = $this->getFields ($database, $table, false, $matchingRegexp);}
+		if (!$fields) {$fields = $this->getFields ($database, $table, false, $matchingRegexpNoForwardSlashes);}
 		
 		# Get the array keys of the fields
 		return array_keys ($fields);

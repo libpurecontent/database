@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.2.10
+ * Version 2.2.11
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -204,37 +204,43 @@ class database
 	
 	# Function to get the data where either (i) only one column per item will be returned, resulting in index => value, or (ii) two columns are returned, resulting in col1 => col2
 	# Uses prepared statement approach if a third parameter providing the placeholder values is supplied
-	public function getPairs ($query, $trimAndUnique = true, $preparedStatementValues = array ())
+	public function getPairs ($query, $unique = true, $preparedStatementValues = array ())
 	{
 		# Get the data
 		$data = $this->getData ($query, false, $keyed = false, $preparedStatementValues);
 		
 		# Convert to pairs
-		$pairs = $this->toPairs ($data, $trimAndUnique);
+		$pairs = $this->toPairs ($data, $unique);
 		
 		# Return the data
 		return $pairs;
 	}
 	
 	
-	# Helper function to convert data to pairs
-	private function toPairs ($data, $trimAndUnique = true)
+	# Helper function to convert data to pairs; assumes that the values in each item are not associative
+	private function toPairs ($data, $unique = true)
 	{
-		# Arrange the data into key/value pairs; if more than one item, use the first two in the list as the key and value
+		# Loop through each item in the data to allocate a key/value pair
 		$pairs = array ();
 		foreach ($data as $key => $item) {
-			foreach ($item as $field => $value) {
-				if (count ($item) == 1) {
-					$pairs[$key] = ($trimAndUnique ? trim ($value) : $value);
-				} else {
-					$pairs[$item[0]] = ($trimAndUnique ? trim ($item[1]) : $item[1]);
-				}
-				break;
+			
+			# If more than one item, use the first two in the list as the key and value
+			if (count ($item) == 1) {
+				$value = $item[0];
+			} else {
+				$key = $item[0];
+				$value = $item[1];
 			}
+			
+			# Trim the value
+			$value = trim ($value);
+			
+			# Add to output data
+			$pairs[$key] = $value;
 		}
 		
-		# Unique the data if necessary
-		if ($trimAndUnique) {$pairs = array_unique ($pairs);}
+		# Unique the data if necessary; note that this is unlikely to be wanted if the main keys are associative
+		if ($unique) {$pairs = array_unique ($pairs);}
 		
 		# Return the data
 		return $pairs;

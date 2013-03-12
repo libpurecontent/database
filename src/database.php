@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.2.11
+ * Version 2.2.12
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -204,7 +204,7 @@ class database
 	
 	# Function to get the data where either (i) only one column per item will be returned, resulting in index => value, or (ii) two columns are returned, resulting in col1 => col2
 	# Uses prepared statement approach if a third parameter providing the placeholder values is supplied
-	public function getPairs ($query, $unique = true, $preparedStatementValues = array ())
+	public function getPairs ($query, $unique = false, $preparedStatementValues = array ())
 	{
 		# Get the data
 		$data = $this->getData ($query, false, $keyed = false, $preparedStatementValues);
@@ -218,7 +218,7 @@ class database
 	
 	
 	# Helper function to convert data to pairs; assumes that the values in each item are not associative
-	private function toPairs ($data, $unique = true)
+	private function toPairs ($data, $unique = false)
 	{
 		# Loop through each item in the data to allocate a key/value pair
 		$pairs = array ();

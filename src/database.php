@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.2.13
+ * Version 2.2.14
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -767,19 +767,8 @@ class database
 		}
 		$preparedValuePlaceholders = implode (', ', $preparedValuePlaceholders);
 		
-		# Allow for an optional ON DUPLICATE KEY UPDATE clause - see: http://dev.mysql.com/doc/refman/5.1/en/insert-on-duplicate.html
-		if ($onDuplicateKeyUpdate) {
-			if ($onDuplicateKeyUpdate === true) {
-				foreach ($data as $key => $value) {
-					$clauses[] = "`{$key}`=VALUES(`{$key}`)";
-				}
-				$onDuplicateKeyUpdate = ' ON DUPLICATE KEY UPDATE ' . implode (',', $clauses);
-			} else {
-				$onDuplicateKeyUpdate = " ON DUPLICATE KEY UPDATE {$onDuplicateKeyUpdate}";
-			}
-		} else {
-			$onDuplicateKeyUpdate = '';
-		}
+		# Handle ON DUPLICATE KEY UPDATE support
+		$onDuplicateKeyUpdate = $this->onDuplicateKeyUpdate ($onDuplicateKeyUpdate, $data);
 		
 		# Assemble the query
 		$query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES ({$preparedValuePlaceholders}){$onDuplicateKeyUpdate};\n";
@@ -804,12 +793,32 @@ class database
 	}
 	
 	
+	# Processing of ON DUPLICATE KEY UPDATE clause - see: http://dev.mysql.com/doc/refman/5.1/en/insert-on-duplicate.html
+	private function onDuplicateKeyUpdate ($onDuplicateKeyUpdate, $data)
+	{
+		# End if not required
+		if (!$onDuplicateKeyUpdate) {return '';}
+		
+		# If boolean true (rather than a string), compile the supplied data to a string first
+		if ($onDuplicateKeyUpdate === true) {
+			foreach ($data as $key => $value) {
+				$clauses[] = "`{$key}`=VALUES(`{$key}`)";
+			}
+			
+			$onDuplicateKeyUpdate = implode (',', $clauses);
+		}
+		
+		# Assemble the string
+		$sqlString = ' ON DUPLICATE KEY UPDATE ' . $onDuplicateKeyUpdate;
+		
+		# Result
+		return $sqlString;
+	}
+	
+	
 	# Function to construct and execute an INSERT statement containing many items
 	public function insertMany ($database, $table, $dataSet, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false)
 	{
-		# ON DUPLICATE KEY UPDATE is not available in this interface (though has been left in the argument list for API consistency)
-		if ($onDuplicateKeyUpdate) {return false;}
-		
 		# Ensure the data is an array and that there is data
 		if (!is_array ($dataSet) || !$dataSet) {return false;}
 		
@@ -851,8 +860,12 @@ class database
 			$valuesPreparedSet[$index] = implode (',', $preparedValuePlaceholders);
 		}
 		
+		# Handle ON DUPLICATE KEY UPDATE support
+		$firstData = array_shift (array_values ($dataSet));
+		$onDuplicateKeyUpdate = $this->onDuplicateKeyUpdate ($onDuplicateKeyUpdate, $firstData);
+		
 		# Assemble the query
-		$query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES (" . implode ('),(', $valuesPreparedSet) . ");\n";
+		$query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES (" . implode ('),(', $valuesPreparedSet) . "){$onDuplicateKeyUpdate};\n";
 		
 		# Prevent submission of over-long queries
 		$maxLength = $this->getOne ("SHOW VARIABLES LIKE 'max_allowed_packet'");

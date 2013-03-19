@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.2.12
+ * Version 2.2.13
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -650,6 +650,7 @@ class database
 				foreach ($conditions as $key => $value) {
 					if ($value === NULL) {		// Has to be set with a real NULL value, i.e. using $conditions['keyname'] = NULL;
 						$where[] = '`' . $key . '`' . ' IS NULL';
+						unset ($conditions[$key]);	// Remove the original placeholder as that will never be used, and contains an array
 					} else if (is_array ($value)) {
 						$i = 0;
 						$conditionsThisGroup = array ();

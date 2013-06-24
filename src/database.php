@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.2.14
+ * Version 2.2.15
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -48,7 +48,7 @@ class database
 		try {
 			$this->connection = new PDO ($dsn, $username, $password);
 		} catch (PDOException $e) {
-			// error_log ("{$dsn}, {$username}, {$password}");
+			// error_log ("{$e} {$dsn}, {$username}, {$password}");		// Not enabled by default as $e can contain passwords which get dumped to the webserver's error log
 			return false;
 		}
 		
@@ -804,7 +804,6 @@ class database
 			foreach ($data as $key => $value) {
 				$clauses[] = "`{$key}`=VALUES(`{$key}`)";
 			}
-			
 			$onDuplicateKeyUpdate = implode (',', $clauses);
 		}
 		
@@ -1342,10 +1341,10 @@ class database
 	
 	
 	# Function to substitute lookup values for their names
-	public function substituteJoinedData ($data, $database, $table /* for targetId fieldname format, or false to use older format, i.e. fieldname__JOIN__databasename__tablename__reserved */, $nameField = 'name')
+	public function substituteJoinedData ($dataset, $database, $table /* for targetId fieldname format, or false to use older format, i.e. fieldname__JOIN__databasename__tablename__reserved */, $targetField = true /* i.e. take id and next field; or set named field, e.g. 'name' */)
 	{
 		# If no data, return the value unchanged
-		if (!$data) {return $data;}
+		if (!$dataset) {return $dataset;}
 		
 		# Determine whether to use the simple join method, and if so assemble the simpleJoin parameter
 		$simpleJoin = false;
@@ -1355,7 +1354,7 @@ class database
 		}
 		
 		# Get the fields in the current dataset
-		$fields = array_keys (reset ($data));
+		$fields = array_keys (reset ($dataset));
 		
 		# Determine which fields are lookups
 		$lookupFields = array ();
@@ -1366,35 +1365,45 @@ class database
 		}
 		
 		# Take no further action if no fields are lookups
-		if (!$lookupFields) {return $data;}
+		if (!$lookupFields) {return $dataset;}
 		
 		# Get the values in use for each of the lookup fields in the data
 		$lookupValues = array ();
 		foreach ($lookupFields as $field => $table) {
-			foreach ($data as $key => $record) {
+			foreach ($dataset as $key => $record) {
 				$lookupValues[$field][] = $record[$field];
 			}
 			$lookupValues[$field] = array_unique ($lookupValues[$field]);
 		}
 		
+		# If required, determine the target field which contains the looked-up data
+		$targetFields = array ();
+		if ($targetField === true) {
+			foreach ($lookupFields as $field => $table) {
+				$fields = $this->getFieldNames ($database, $table);
+				$targetFields[$field] = $fields[1];	// 2nd field, i.e. the one after the key
+			}
+		}
+		
 		# Lookup the values
 		$lookupResults = array ();
 		foreach ($lookupValues as $field => $values) {
-			$lookupResults[$field] = $this->selectPairs ($database, $lookupFields[$field], array ('id' => $values), array ('id', $nameField));
+			$targetField = ($targetFields ? $targetFields[$field] : $targetField);
+			$lookupResults[$field] = $this->selectPairs ($database, $lookupFields[$field], array ('id' => $values), array ('id', $targetField));
 		}
 		
 		# Substitute in the values, retaining the originals where no lookup exists
-		foreach ($data as $key => $record) {
+		foreach ($dataset as $key => $record) {
 			foreach ($lookupResults as $field => $lookups) {
 				if (array_key_exists ($record[$field], $lookups)) {
 					$lookedUpValue = $record[$field];
-					$data[$key][$field] = $lookups[$lookedUpValue];
+					$dataset[$key][$field] = $lookups[$lookedUpValue];
 				}
 			}
 		}
 		
-		# Return the amended data
-		return $data;
+		# Return the amended dataset
+		return $dataset;
 	}
 	
 	

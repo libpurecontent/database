@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.2.15
+ * Version 2.3.0
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -23,7 +23,7 @@ class database
 	
 	
 	# Function to connect to the database
-	function database ($hostname, $username, $password, $database = NULL, $vendor = 'mysql', $logFile = false, $userForLogging = false, $unicode = true)
+	public function __construct ($hostname, $username, $password, $database = NULL, $vendor = 'mysql', $logFile = false, $userForLogging = false, $unicode = true)
 	{
 		# Assign the user for logging
 		$this->logFile = $logFile;
@@ -1471,8 +1471,8 @@ class database
 	}
 	
 	
-	# Public accessor function to get the query
-	function getQuery ($showRawPreparedQuery = false)
+	# Accessor function to get the query
+	public function getQuery ($showRawPreparedQuery = false)
 	{
 		# Return the direct query if emulation of what the prepared statement is not required
 		if ($showRawPreparedQuery) {
@@ -1525,7 +1525,7 @@ class database
 	
 	
 	# Function to do sort trimming of a field name, to be put in an ORDER BY clause
-	function trimSql ($fieldname)
+	public function trimSql ($fieldname)
 	{
 		return "TRIM( LEADING '{' FROM TRIM( LEADING '}' FROM TRIM( LEADING '(' FROM TRIM( LEADING '[' FROM TRIM( LEADING '\"' FROM TRIM( LEADING \"'\" FROM TRIM( LEADING '@' FROM TRIM( LEADING 'a ' FROM TRIM( LEADING 'an ' FROM TRIM( LEADING 'the ' FROM LOWER( `{$fieldname}` ) ) ) ) ) ) ) ) ) ) )";
 	}

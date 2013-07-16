@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.3.0
+ * Version 2.3.1
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -155,10 +155,10 @@ class database
 	
 	
 	# Return the value of the field column from the single-result query
-	public function getOneField ($query, $field)
+	public function getOneField ($query, $field, $preparedStatementValues = array ())
 	{
 		# Get the result or end (returning null or false)
-		if (!$result = $this->getOne ($query)) {return $result;}
+		if (!$result = $this->getOne ($query, false, true, $preparedStatementValues)) {return $result;}
 		
 		# If the field doesn't exist, return false
 		if (!isSet ($result[$field])) {return false;}

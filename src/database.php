@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.3.1
+ * Version 2.3.2
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1175,7 +1175,7 @@ class database
 	
 	# Define a lookup function used to join fields in the format targettableId fieldname__JOIN__targetDatabase__targetTable__reserved
 	#!# Caching mechanism needed for repeated fields (and fieldnames as below), one level higher in the calling structure
-	public function lookup ($databaseConnection, $fieldname, $fieldType, $simpleJoin = false, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array (), $tableMonikerTranslations = array ())
+	public static function lookup ($databaseConnection, $fieldname, $fieldType, $simpleJoin = false, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array (), $tableMonikerTranslations = array ())
 	{
 		# Determine if it's a special JOIN field
 		$values = array ();
@@ -1296,7 +1296,7 @@ class database
 	
 	
 	# Function to convert joins
-	public function convertJoin ($fieldname, $simpleJoin = false /* or array(currentDatabase,currentTable,array(tables)) */)
+	public static function convertJoin ($fieldname, $simpleJoin = false /* or array(currentDatabase,currentTable,array(tables)) */)
 	{
 		# Simple join mode, e.g. targetId joins to database=$simpleJoin[0],table=target, and the field is fixed as 'id'
 		if ($simpleJoin) {
@@ -1359,7 +1359,7 @@ class database
 		# Determine which fields are lookups
 		$lookupFields = array ();
 		foreach ($fields as $field) {
-			if ($matches = $this->convertJoin ($field, $simpleJoin)) {
+			if ($matches = self::convertJoin ($field, $simpleJoin)) {
 				$lookupFields[$field] = $matches['table'];
 			}
 		}

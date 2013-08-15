@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.3.2
+ * Version 2.3.3
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1310,6 +1310,9 @@ class database
 						break;
 					case (in_array ($matches[1] . 's', $tables)):	// Simple pluraliser, e.g. for a field 'caseId' look for a table 'cases'; if not present, it will assume 'case'
 						$table = $matches[1] . 's';
+						break;
+					case (in_array (preg_replace ('/y$/', 'ies', $matches[1]), $tables)):	// Pluraliser for ~y => ~ies, e.g. countryId => countries
+						$table =    preg_replace ('/y$/', 'ies', $matches[1]);
 						break;
 					default:
 						$table = $matches[1];

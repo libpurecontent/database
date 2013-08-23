@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.3.3
+ * Version 2.3.4
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1530,7 +1530,42 @@ class database
 	# Function to do sort trimming of a field name, to be put in an ORDER BY clause
 	public function trimSql ($fieldname)
 	{
-		return "TRIM( LEADING '{' FROM TRIM( LEADING '}' FROM TRIM( LEADING '(' FROM TRIM( LEADING '[' FROM TRIM( LEADING '\"' FROM TRIM( LEADING \"'\" FROM TRIM( LEADING '@' FROM TRIM( LEADING 'a ' FROM TRIM( LEADING 'an ' FROM TRIM( LEADING 'the ' FROM LOWER( `{$fieldname}` ) ) ) ) ) ) ) ) ) ) )";
+		# Assemble the fieldname quoted
+		$fieldname = '`' . str_replace ('.', '`.`', $fieldname) . '`';
+		
+		# Assemble the SQL
+		$sql = "TRIM( LEADING '{' FROM TRIM( LEADING '}' FROM TRIM( LEADING '(' FROM TRIM( LEADING '[' FROM TRIM( LEADING '\"' FROM TRIM( LEADING \"'\" FROM TRIM( LEADING '@' FROM TRIM( LEADING 'a ' FROM TRIM( LEADING 'an ' FROM TRIM( LEADING 'the ' FROM LOWER( {$fieldname} ) ) ) ) ) ) ) ) ) ) )";
+		
+		# Return the SQL
+		return $sql;
+	}
+	
+	
+	# Function to split any records in a set into multiple records where a SET field has multiple entries; note this will destroy all keys
+	public function splitSetToMultipleRecords ($records, $field, $namespace = '_')
+	{
+		# Work through each record
+		foreach ($records as $id => $record) {
+			
+			# Skip as unmodified if empty string
+			if (!strlen ($record[$field])) {continue;}
+			
+			# Get the values; this is applied consistently even when no commas
+			$values = explode (',', $record[$field]);
+			
+			# Add the values as new records with a namespaced ID
+			foreach ($values as $value) {
+				$createdId = $id . $namespace . $value;
+				$records[$createdId] = $record;
+				$records[$createdId][$field] = $value;
+			}
+			
+			# Remove the original record
+			unset ($records[$id]);
+		}
+		
+		# Return the records
+		return $records;
 	}
 	
 	

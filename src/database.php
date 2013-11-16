@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.3.7
+ * Version 2.3.8
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -902,12 +902,6 @@ class database
 		# Assemble the pairs
 		$preparedValueUpdates = array ();
 		foreach ($data as $key => $value) {
-			
-			# Make the condition be that the first item is the key if nothing specified
-			#!# This looks like being bogus - audit whether this can be removed or whether it is necessary for safety
-			if (!$conditions) {
-				$conditions[$key] = $value;	// This will only get triggered once, because it $conditions will be non-empty
-			}
 			
 			# Add the data
 			if ($emptyToNull && ($data[$key] === '')) {$data[$key] = NULL;}	// Convert empty to NULL if required

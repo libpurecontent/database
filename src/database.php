@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.3.8
+ * Version 2.3.9
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1657,7 +1657,7 @@ class database
 	
 	
 	# Function to execute SQL into MySQL
-	public function runSql ($settings, $input, $isFile = true)
+	public function runSql ($settings, $input, $isFile = true, &$outputText = false)
 	{
 		# Determine the input
 		if ($isFile) {
@@ -1667,14 +1667,20 @@ class database
 			$input = '-e "' . str_replace ('"', '\\"', $input) . '"';
 		}
 		
-		# Compile the command
-		$command = "mysql --max_allowed_packet=1000M --local-infile=1 -h {$settings['hostname']} -u {$settings['username']} --password={$settings['password']} {$settings['database']} {$input}";
+		# Compile the command; "2>&1" needed to capture error output - see http://stackoverflow.com/a/8940800
+		$command = "mysql --max_allowed_packet=1000M --local-infile=1 -h {$settings['hostname']} -u {$settings['username']} --password={$settings['password']} {$settings['database']} {$input} 2>&1";
 		
 		# Execute the command
-		$output = shell_exec ($command);
+		exec ($command, $outputLines, $shellResult);
 		
-		# Return the output
-		return $output;
+		# Assemble the output lines
+		$outputText = implode ("\n", $outputLines);
+		
+		# Convert the result from shell output (0 = OK, other number = problem) to PHP true/false
+		$result = (!$shellResult);
+		
+		# Return the result (true or false)
+		return $result;
 	}
 }
 

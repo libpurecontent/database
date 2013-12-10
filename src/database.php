@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.3.9
+ * Version 2.3.10
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -956,7 +956,7 @@ class database
 	
 	
 	# Function to update many rows at once; see this good overview: http://www.karlrixon.co.uk/writing/update-multiple-rows-with-different-values-and-a-single-sql-query/
-	public function updateMany ($database, $table, $dataSet, $emptyToNull = true, $safe = false, $showErrors = false)
+	public function updateMany ($database, $table, $dataSet, $chunking = false, $uniqueField = false, $emptyToNull = true, $safe = false, $showErrors = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($dataSet) || !$dataSet) {return false;}
@@ -965,78 +965,100 @@ class database
 		require_once ('application.php');
 		if (!$fields = application::arrayFieldsConsistent ($dataSet)) {return false;}
 		
-		# Get the key field
-		$uniqueField = $this->getUniqueField ($database, $table);
+		# Get the key field if not explicitly supplied
+		if (!$uniqueField) {
+			$uniqueField = $this->getUniqueField ($database, $table);
+		}
 		
-		# Build the inner "SET %fieldname = CASE id WHEN foo THEN bar WHEN ..." statements, field by field
-		$querySetCaseBlocks = array ();
-		$preparedStatementValues = array ();
-		$keyPlaceholders = array ();
-		foreach ($fields as $index => $field) {
-			$querySetCaseBlocks[$field]  = "`{$field}` = CASE id";
-			$keyPlaceholderId = 0;	// These can be reused
+		# Chunk the records if required
+		$dataSetChunked = array ($dataSet);
+		if ($chunking) {
+			$dataSetChunked = array ();
+			$group = 0;
+			$i = 0;	// Record counter for this group
 			foreach ($dataSet as $key => $data) {
-				$value = $data[$field];
-				
-				# Create a placeholder for the key
-				$keyPlaceholder = "k{$keyPlaceholderId}";	// Uses numeric values to be sure it is valid
-				$preparedStatementValues[$keyPlaceholder] = $key;
-				
-				# Register this data key in the keys list; this is done only once, rather than pointlessly for each field
-				if ($index == 0) {
-					$keyPlaceholders[$key] = ':' . $keyPlaceholder;
+				$dataSetChunked[$group][$key] = $data;
+				$i++;
+				if ($i == $chunking) {
+					$group++;	// Start new group
+					$i = 0;		// Reset the counter for this group
 				}
-				
-				# Create a placeholder (or, for special keywords, a string)
-				$valuePlaceholder = "v{$index}_{$keyPlaceholderId}";	// Uses numeric values to be sure it is valid
-				if ($emptyToNull && ($value === '')) {	// Convert empty to NULL if required
-					$value = 'NULL';	// i.e. an (unquoted) 'real' SQL NULL
-					$valuePlaceholder = false;
-				}
-				if ($value == 'NOW()') {	// Special handling for keywords, which are not quoted
-					$valuePlaceholder = false;
-				}
-				if ($valuePlaceholder) {
-					$preparedStatementValues[$valuePlaceholder] = $value;
-				}
-				
-				# Add the component
-				$querySetCaseBlocks[$field] .= "\n\t\tWHEN :k{$keyPlaceholderId} THEN " . ($valuePlaceholder ? ":{$valuePlaceholder}" : $value);
-				
-				# Advance counters
-				$keyPlaceholderId++;
-			}
-			$querySetCaseBlocks[$field] .= "\n\tEND";
-		}
-		
-		# Assemble the overall query
-		$query  = "UPDATE `{$table}`";
-		$query .= "\n\tSET " . implode (",\n\t", $querySetCaseBlocks);
-		$query .= "\nWHERE `{$uniqueField}` IN (" . implode (', ', $keyPlaceholders) . ')';
-		
-		# Prevent submission of over-long queries
-		if ($maxLength = $this->getVariable ('max_allowed_packet')) {
-			if (strlen ($query) > (int) $maxLength) {
-				return false;
 			}
 		}
 		
-		# In safe mode, only show the query
-		if ($safe) {
-			echo '<pre>' . $query . "</pre><br />";
-			return true;
+		# Loop through each chunk (which may be a single chunk containing the whole dataset if chunking is disabled)
+		foreach ($dataSetChunked as $dataSet) {
+			
+			# Build the inner "SET %fieldname = CASE id WHEN foo THEN bar WHEN ..." statements, field by field
+			$querySetCaseBlocks = array ();
+			$preparedStatementValues = array ();
+			$keyPlaceholders = array ();
+			foreach ($fields as $index => $field) {
+				$querySetCaseBlocks[$field]  = "`{$field}` = CASE id";
+				$keyPlaceholderId = 0;	// These can be reused
+				foreach ($dataSet as $key => $data) {
+					$value = $data[$field];
+					
+					# Create a placeholder for the key
+					$keyPlaceholder = "k{$keyPlaceholderId}";	// Uses numeric values to be sure it is valid
+					$preparedStatementValues[$keyPlaceholder] = $key;
+					
+					# Register this data key in the keys list; this is done only once, rather than pointlessly for each field
+					if ($index == 0) {
+						$keyPlaceholders[$key] = ':' . $keyPlaceholder;
+					}
+					
+					# Create a placeholder (or, for special keywords, a string)
+					$valuePlaceholder = "v{$index}_{$keyPlaceholderId}";	// Uses numeric values to be sure it is valid
+					if ($emptyToNull && ($value === '')) {	// Convert empty to NULL if required
+						$value = 'NULL';	// i.e. an (unquoted) 'real' SQL NULL
+						$valuePlaceholder = false;
+					}
+					if ($value == 'NOW()') {	// Special handling for keywords, which are not quoted
+						$valuePlaceholder = false;
+					}
+					if ($valuePlaceholder) {
+						$preparedStatementValues[$valuePlaceholder] = $value;
+					}
+					
+					# Add the component
+					$querySetCaseBlocks[$field] .= "\n\t\tWHEN :k{$keyPlaceholderId} THEN " . ($valuePlaceholder ? ":{$valuePlaceholder}" : $value);
+					
+					# Advance counters
+					$keyPlaceholderId++;
+				}
+				$querySetCaseBlocks[$field] .= "\n\tEND";
+			}
+			
+			# Assemble the overall query
+			$query  = "UPDATE `{$database}`.`{$table}`";
+			$query .= "\n\tSET " . implode (",\n\t", $querySetCaseBlocks);
+			$query .= "\nWHERE `{$uniqueField}` IN (" . implode (', ', $keyPlaceholders) . ')';
+			
+			# Prevent submission of over-long queries
+			if ($maxLength = $this->getVariable ('max_allowed_packet')) {
+				if (strlen ($query) > (int) $maxLength) {
+					return false;
+				}
+			}
+			
+			# In safe mode, only show the query
+			if ($safe) {
+				echo '<pre>' . $query . "</pre><br />";
+				return true;
+			}
+			
+			# Execute the query
+			$rows = $this->execute ($query, $preparedStatementValues, $showErrors);
+			
+			# Determine the result
+			$result = ($rows !== false);
+			
+			# Log the change
+			$this->logChange ($result);
 		}
 		
-		# Execute the query
-		$rows = $this->execute ($query, $preparedStatementValues, $showErrors);
-		
-		# Determine the result
-		$result = ($rows !== false);
-		
-		# Log the change
-		$this->logChange ($result);
-		
-		# Return the result
+		# Return the (last) result
 		return $result;
 	}
 	

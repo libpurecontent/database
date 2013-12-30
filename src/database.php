@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.3.10
+ * Version 2.3.11
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -437,10 +437,10 @@ class database
 			}
 		}
 		
-		# Expand ENUM field values
+		# Expand ENUM/SET field values
 		foreach ($data as $key => $attributes) {
-			if (preg_match ('/^enum\(\'(.+)\'\)$/i', $attributes['Type'], $matches)) {
-				$fields[$attributes['Field']]['_values'] = explode ("','", $matches[1]);
+			if (preg_match ('/^(enum|set)\(\'(.+)\'\)$/i', $attributes['Type'], $matches)) {
+				$fields[$attributes['Field']]['_values'] = explode ("','", $matches[2]);
 			} else {
 				$fields[$attributes['Field']]['_values'] = NULL;
 			}
@@ -1675,6 +1675,62 @@ class database
 		
 		# Return the records
 		return $records;
+	}
+	
+	
+	# Function to add a value to a SET; see http://dev.mysql.com/doc/refman/5.5/en/set.html#c6846
+	public function addToSet ($database, $table, $field, $value, $whereField, $whereValue)
+	{
+		# Define the query
+		$query = "UPDATE
+			`{$database}`.`{$table}`
+			SET `{$field}` = CONCAT_WS(',', IF(`{$field}` = '', NULL, `{$field}`), :value)
+			WHERE `{$whereField}` = :id
+		;";
+		$preparedStatementValues = array (
+			'id'	=> $whereValue,
+			'value'	=> $value,
+		);
+		
+		# Execute the query
+		$rows = $this->execute ($query, $preparedStatementValues);
+		
+		# Determine the result
+		$result = ($rows !== false);
+		
+		# Log the change
+		$this->logChange ($result);
+		
+		# Return the result
+		return $result;
+	}
+	
+	
+	# Function to remove a value from a SET; see http://dev.mysql.com/doc/refman/5.5/en/set.html#c6846
+	public function removeFromSet ($database, $table, $field, $value, $whereField, $whereValue)
+	{
+		# Define the query
+		$query = "UPDATE
+			`{$database}`.`{$table}`
+			SET `{$field}` = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', `{$field}`, ','), CONCAT(',', :value, ','), ','))
+			WHERE `{$whereField}` = :id
+		;";
+		$preparedStatementValues = array (
+			'id'	=> $whereValue,
+			'value'	=> $value,
+		);
+		
+		# Execute the query
+		$rows = $this->execute ($query, $preparedStatementValues);
+		
+		# Determine the result
+		$result = ($rows !== false);
+		
+		# Log the change
+		$this->logChange ($result);
+		
+		# Return the result
+		return $result;
 	}
 	
 	

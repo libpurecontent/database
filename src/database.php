@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.3.11
+ * Version 2.3.12
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -465,6 +465,23 @@ class database
 	}
 	
 	
+	# Function to detect values that should not be quoted
+	private function valueIsFunctionCall ($string)
+	{
+		# Normalise the string
+		$string = strtoupper ($string);
+		$string = str_replace (' (', '(', $string);
+		
+		# Detect keywords
+		if ($string == 'NOW()') {return true;}
+		if (preg_match ('/^POINTFROMTEXT\(/', $string)) {return true;}
+		// Add more here
+		
+		# Treat as standard string if not detected
+		return false;
+	}
+	
+	
 	# Function to determine if the data is hierarchical
 	public function isHierarchical ($database, $table)
 	{
@@ -761,7 +778,7 @@ class database
 		$preparedValuePlaceholders = array ();
 		foreach ($data as $key => $value) {
 			if ($emptyToNull && ($data[$key] === '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
-			if ($data[$key] == 'NOW()') {	// Special handling for keywords, which are not quoted
+			if ($this->valueIsFunctionCall ($data[$key])) {	// Special handling for keywords, which are not quoted
 				$preparedValuePlaceholders[] = $data[$key];	// State the value directly rather than use a placeholder
 				unset ($data[$key]);
 				continue;
@@ -843,7 +860,7 @@ class database
 			$preparedValuePlaceholders = array ();
 			foreach ($data as $key => $value) {
 				if ($emptyToNull && ($data[$key] === '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
-				if ($data[$key] == 'NOW()') {	// Special handling for keywords, which are not quoted
+				if ($this->valueIsFunctionCall ($data[$key])) {	// Special handling for keywords, which are not quoted
 					$preparedValuePlaceholders[] = $data[$key];	// State the value directly rather than use a placeholder
 					unset ($data[$key]);
 					continue;

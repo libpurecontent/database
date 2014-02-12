@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.3.12
+ * Version 2.4.0
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -44,7 +44,12 @@ class database
 		}
 		
 		# Connect to the database and return the status
-		$dsn = "{$vendor}:host={$hostname}" . ($database ? ";dbname={$database}" : '');
+		if ($vendor == 'sqlite') {
+			$dsn = 'sqlite:' . $database;	// Database should be a filename with absolute path
+			$unicode = false;	// Disable SET NAMES statement
+		} else {
+			$dsn = "{$vendor}:host={$hostname}" . ($database ? ";dbname={$database}" : '');
+		}
 		try {
 			$this->connection = new PDO ($dsn, $username, $password);
 		} catch (PDOException $e) {
@@ -413,7 +418,11 @@ class database
 			$cachedQueryValues = (!is_null ($this->queryValues) ? $this->queryValues : NULL);
 			
 			# Get the data
-			$query = "SHOW FULL FIELDS FROM `{$database}`.`{$table}`;";
+			if ($this->vendor == 'sqlite') {
+				$query = "PRAGMA {$database}.table_info({$table});";
+			} else {
+				$query = "SHOW FULL FIELDS FROM `{$database}`.`{$table}`;";
+			}
 			$data = $this->getData ($query);
 			
 			# Restablish the catched query and its values if there is one
@@ -422,6 +431,11 @@ class database
 			
 			# Add the result to the fields cache, in case there is another request for getFields for this database table
 			$this->fieldsCache[$database][$table] = $data;
+		}
+		
+		# For SQLite, map the structure to emulate the MySQL format
+		if ($this->vendor == 'sqlite') {
+			$data = $this->sqliteTableStructureEmulation ($data, $table);
 		}
 		
 		# Convert the field name to be the key name
@@ -462,6 +476,41 @@ class database
 		
 		# Return the result
 		return $fields;
+	}
+	
+	
+	# Function to emulate an SQLite table structure in MySQL format
+	private function sqliteTableStructureEmulation ($data, $table)
+	{
+		# Obtain the comments by obtaining the original CREATE TABLE SQL
+		$ddlQuery = "SELECT name, sql FROM sqlite_master WHERE type='table' AND name='{$table}' ORDER BY name;";
+		$originalCreateTableQuery = $this->getOneField ($ddlQuery, 'sql');
+		$lines = explode ("\n", trim ($originalCreateTableQuery));
+		$comments = array ();
+		foreach ($lines as $id => $line) {
+			$line = str_replace ('`', '', trim ($line));
+			if (preg_match ('/^([^\s]+)\s.+--\s(.+)$/', $line, $matches)) {
+				$comments[$matches[1]] = $matches[2];
+			}
+		}
+		
+		# Map the structure, replacing the SQLite
+		foreach ($data as $index => $field) {
+			$data[$index] = array (
+				'Field'			=> $field['name'],
+				'Type'			=> $field['type'],
+				'Collation'		=> NULL,		// No support for this in SQLite
+				'Null'			=> !$field['notnull'],
+				'Key'			=> ($field['pk'] == '1' ? 'PRI' : false),
+				'Default'		=> $field['dflt_value'],
+				'Extra'			=> ($field['type'] == 'INTEGER' && $field['pk'] == '1' ? 'auto_increment' : NULL),
+				'Privileges'	=> NULL,		// No support for this in SQLite
+				'Comment'		=> $comments[$field['name']],
+			);
+		}
+		
+		# Return the data
+		return $data;
 	}
 	
 	

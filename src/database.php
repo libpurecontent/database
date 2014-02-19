@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-13
- * Version 2.4.0
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
+ * Version 2.4.1
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -796,6 +796,23 @@ class database
 		#!# This could be unset if it's associative
 		#!# http://bugs.mysql.com/36824 could result in a value slipping through that is not strictly matched - see also strictWhere
 		return $data[0];
+	}
+	
+	
+	# Function to select the data where only one field of item will be returned (as per getOneField); this function has the same signature as selectOne, except for the default on associative
+	public function selectOneField ($database, $table, $field, $conditions = array (), $columns = array (), $associative_ArgumentIgnored = false, $orderBy = false, $limit = false)
+	{
+		# Get the data
+		$data = $this->selectOne ($database, $table, $conditions, $columns, false, $orderBy, $limit);
+		
+		# End if no data
+		if (!$data) {return false;}
+		
+		# End if field not present
+		if (!array_key_exists ($field, $data)) {return false;}
+		
+		# Return the data
+		return $data[$field];
 	}
 	
 	

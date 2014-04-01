@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.1
+ * Version 2.4.2
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -23,7 +23,7 @@ class database
 	
 	
 	# Function to connect to the database
-	public function __construct ($hostname, $username, $password, $database = NULL, $vendor = 'mysql', $logFile = false, $userForLogging = false, $unicode = true)
+	public function __construct ($hostname, $username, $password, $database = NULL, $vendor = 'mysql', $logFile = false, $userForLogging = false, $unicode = true, $driverOptions = array ())
 	{
 		# Assign the user for logging
 		$this->logFile = $logFile;
@@ -51,7 +51,7 @@ class database
 			$dsn = "{$vendor}:host={$hostname}" . ($database ? ";dbname={$database}" : '');
 		}
 		try {
-			$this->connection = new PDO ($dsn, $username, $password);
+			$this->connection = new PDO ($dsn, $username, $password, $driverOptions);
 		} catch (PDOException $e) {
 			// error_log ("{$e} {$dsn}, {$username}, {$password}");		// Not enabled by default as $e can contain passwords which get dumped to the webserver's error log
 			return false;

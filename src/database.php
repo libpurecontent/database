@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.2
+ * Version 2.4.3
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -335,6 +335,72 @@ class database
 		
 		# Return the array
 		return $data;
+	}
+	
+	
+	# Function to export data served as a CSV, optimised to use low memory; this is a combination of database::getData() and csv::serve
+	public function serveCsv ($query, $preparedStatementValues = array (), $filenameBase = 'data', $timestamp = true, $headerLabels = array (), $zipped = false)
+	{
+		# Global the query and any values
+		$this->query = $query;
+		$this->queryValues = $preparedStatementValues;
+		
+		# Execute the statement (ending if there is an error in the query or parameters)
+		$this->preparedStatement = $this->connection->prepare ($query);
+		if (!$this->preparedStatement->execute ($preparedStatementValues)) {
+			return false;
+		}
+		
+		# Start a CSV string
+		require_once ('csv.php');
+		$csv = '';
+		
+		# Define the number of records per chunk of CSV string to append, to keep memory usage down
+		$chunksOf = 100;
+		
+		# Set chunking state
+		$data = array ();
+		$i = 0;
+		$includeHeaderRow = true;
+		
+		# Fetch the data
+		$this->preparedStatement->setFetchMode (PDO::FETCH_ASSOC);
+		while ($row = $this->preparedStatement->fetch ()) {
+			$data[] = $row;
+			$i++;
+			
+			# Add data periodically by processing the chunk when limit required
+			if ($i == $chunksOf) {
+				$csv .= csv::dataToCsv ($data, '', ',', $headerLabels, $includeHeaderRow);
+				
+				# Reset chunking state
+				$data = array ();
+				$i = 0;
+				$includeHeaderRow = false;	// Only the first iteration should have headers
+			}
+		}
+		
+		# Add residual data to the CSV if any left over (which will usually happen, unless the amount of data is exactly divisible by $chunksOf
+		if ($data) {
+			$csv .= csv::dataToCsv ($data, '', ',', $headerLabels, $includeHeaderRow);
+		}
+		
+		# Add a timestamp if required
+		if ($timestamp) {
+			$filenameBase .= '_savedAt' . date ('Ymd-His');
+		}
+		
+		# If zipped, emit the data in a zip enclosure
+		if ($zipped) {
+			require_once ('application.php');
+			application::zipFromString ($csv, $filenameBase . '.csv');
+			return;
+		}
+		
+		# Publish, by sending a header and then echoing the data
+		header ('Content-type: application/octet-stream');
+		header ('Content-Disposition: attachment; filename="' . $filenameBase . '.csv"');
+		echo $csv;
 	}
 	
 	

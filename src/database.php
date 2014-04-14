@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.3
+ * Version 2.4.4
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1040,7 +1040,7 @@ class database
 	
 	
 	# Function to construct and execute an UPDATE statement
-	public function update ($database, $table, $data, $conditions = array (), $emptyToNull = true, $safe = false)
+	public function update ($database, $table, $data, $conditions = array (), $emptyToNull = true, $safe = false, $returnRowCount = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
@@ -1098,6 +1098,11 @@ class database
 		
 		# Log the change
 		$this->logChange ($result);
+		
+		# Return the row count instead if required
+		if ($returnRowCount) {
+			$result = $rows;
+		}
 		
 		# Return the result
 		return $result;

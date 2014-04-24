@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.4
+ * Version 2.4.5
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -405,7 +405,7 @@ class database
 	
 	
 	# Function to do getData via pagination
-	public function getDataViaPagination ($query, $associative = false, $keyed = true, $preparedStatementValues = array (), $onlyFields = array (), $paginationRecordsPerPage, $page = 1, $searchResultsMaximumLimit = false)
+	public function getDataViaPagination ($query, $associative = false /* or string as "{$database}.{$table}" */, $keyed = true, $preparedStatementValues = array (), $onlyFields = array (), $paginationRecordsPerPage, $page = 1, $searchResultsMaximumLimit = false)
 	{
 		# Prepare the counting query; use a negative lookahead to match the section between SELECT ... FROM - see http://stackoverflow.com/questions/406230
 		$placeholders = array (
@@ -437,6 +437,7 @@ class database
 		
 		# Get the requested page and calculate the pagination
 		require_once ('pagination.php');
+		if (is_int ($page)) {$page = (string) $page;}	// If page is actually an int, ctype_digit would not properly detect it as numeric
 		$requestedPage = (ctype_digit ($page) ? $page : 1);
 		list ($totalPages, $offset, $items, $limitPerPage, $page) = pagination::getPagerData ($totalAvailable, $paginationRecordsPerPage, $requestedPage);
 		

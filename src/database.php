@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.6
+ * Version 2.4.7
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1805,12 +1805,16 @@ class database
 	}
 	
 	
-	# Function to assemble a REPLACE() phrase from multiple string replacements; the caller is responsible for quoting
-	public function replaceSql ($pairs, $field)
+	# Function to assemble a REPLACE() phrase from multiple string replacements; the enclosing quote mark (' or ") must be specified (or false, if the caller has already quoted all keys and values)
+	public function replaceSql ($pairs, $field, $quoteMark)
 	{
 		# Build the SQL string
 		$sql = $field;
 		foreach ($pairs as $find => $replace) {
+			if ($quoteMark) {
+				$find = $quoteMark . $find . $quoteMark;
+				$replace = $quoteMark . $replace . $quoteMark;
+			}
 			$sql = "REPLACE({$sql},{$find},{$replace})";
 		}
 		

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.7
+ * Version 2.4.8
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -83,6 +83,7 @@ class database
 	
 	
 	# Function to execute a generic SQL query
+	#!# Currently no ability to enable logging for write-based queries; need to allow external callers to specify this, but without this affecting internal use of this function
 	public function query ($query, $preparedStatementValues = array (), $debug = false)
 	{
 		return $this->queryOrExecute (__FUNCTION__, $query, $preparedStatementValues, $debug);
@@ -90,6 +91,7 @@ class database
 	
 	
 	# Function to execute a generic SQL query
+	#!# Currently no ability to enable logging for write-based queries; need to allow external callers to specify this, but without this affecting internal use of this function
 	public function execute ($query, $preparedStatementValues = array (), $debug = false)
 	{
 		return $this->queryOrExecute (__FUNCTION__, $query, $preparedStatementValues, $debug);
@@ -1669,6 +1671,9 @@ class database
 		
 		# Get the query
 		$query = $this->getQuery ();
+		
+		# Ensure the query ends with a newline
+		$query = trim ($query) . "\n";
 		
 		# End if the file is not writable, or the containing directory is not if the file does not exist
 		if (file_exists ($this->logFile)) {

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.8
+ * Version 2.4.9
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -971,7 +971,7 @@ class database
 	
 	
 	# Function to construct and execute an INSERT statement containing many items
-	public function insertMany ($database, $table, $dataSet, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false)
+	public function insertMany ($database, $table, $dataSet, $chunking = false, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false)
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($dataSet) || !$dataSet) {return false;}
@@ -983,61 +983,68 @@ class database
 		# Assemble the field names
 		$fields = '`' . implode ('`,`', $fields) . '`';
 		
-		# Loop through each set of data
-		$valuesPreparedSet = array ();
-		$preparedStatementValues = array ();
-		foreach ($dataSet as $index => $data) {
+		# Chunk the records if required; if not, the entire set will be put into a single container
+		$dataSetChunked = array_chunk ($dataSet, ($chunking ? $chunking : count ($dataSet)), true);
+		
+		# Loop through each chunk (which may be a single chunk containing the whole dataset if chunking is disabled)
+		foreach ($dataSetChunked as $dataSet) {
 			
-			# Ensure the data is an array and that there is data
-			if (!is_array ($data) || !$data) {return false;}
-			
-			# Assemble the values
-			$preparedValuePlaceholders = array ();
-			foreach ($data as $key => $value) {
-				if ($emptyToNull && ($data[$key] === '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
-				if ($this->valueIsFunctionCall ($data[$key])) {	// Special handling for keywords, which are not quoted
-					$preparedValuePlaceholders[] = $data[$key];	// State the value directly rather than use a placeholder
-					unset ($data[$key]);
-					continue;
+			# Loop through each set of data
+			$valuesPreparedSet = array ();
+			$preparedStatementValues = array ();
+			foreach ($dataSet as $index => $data) {
+				
+				# Ensure the data is an array and that there is data
+				if (!is_array ($data) || !$data) {return false;}
+				
+				# Assemble the values
+				$preparedValuePlaceholders = array ();
+				foreach ($data as $key => $value) {
+					if ($emptyToNull && ($data[$key] === '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
+					if ($this->valueIsFunctionCall ($data[$key])) {	// Special handling for keywords, which are not quoted
+						$preparedValuePlaceholders[] = $data[$key];	// State the value directly rather than use a placeholder
+						unset ($data[$key]);
+						continue;
+					}
+					$placeholder = ":{$index}_{$key}";
+					$preparedValuePlaceholders[] = ' ' . $placeholder;
+					$preparedStatementValues[$placeholder] = $data[$key];
 				}
-				$placeholder = ":{$index}_{$key}";
-				$preparedValuePlaceholders[] = ' ' . $placeholder;
-				$preparedStatementValues[$placeholder] = $data[$key];
+				$valuesPreparedSet[$index] = implode (',', $preparedValuePlaceholders);
 			}
-			$valuesPreparedSet[$index] = implode (',', $preparedValuePlaceholders);
-		}
-		
-		# Handle ON DUPLICATE KEY UPDATE support
-		$dataSetValues = array_values ($dataSet);	// This temp has to be used to avoid "Strict Standards: Only variables should be passed by reference"
-		$firstData = array_shift ($dataSetValues);
-		$onDuplicateKeyUpdate = $this->onDuplicateKeyUpdate ($onDuplicateKeyUpdate, $firstData);
-		
-		# Assemble the query
-		$query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES (" . implode ('),(', $valuesPreparedSet) . "){$onDuplicateKeyUpdate};\n";
-		
-		# Prevent submission of over-long queries
-		if ($maxLength = $this->getVariable ('max_allowed_packet')) {
-			if (strlen ($query) > (int) $maxLength) {
-				return false;
+			
+			# Handle ON DUPLICATE KEY UPDATE support
+			$dataSetValues = array_values ($dataSet);	// This temp has to be used to avoid "Strict Standards: Only variables should be passed by reference"
+			$firstData = array_shift ($dataSetValues);
+			$onDuplicateKeyUpdateThisChunk = $this->onDuplicateKeyUpdate ($onDuplicateKeyUpdate, $firstData);
+			
+			# Assemble the query
+			$query = "INSERT INTO `{$database}`.`{$table}` ({$fields}) VALUES (" . implode ('),(', $valuesPreparedSet) . "){$onDuplicateKeyUpdateThisChunk};\n";
+			
+			# Prevent submission of over-long queries
+			if ($maxLength = $this->getVariable ('max_allowed_packet')) {
+				if (strlen ($query) > (int) $maxLength) {
+					return false;
+				}
 			}
+			
+			# In safe mode, only show the query
+			if ($safe) {
+				echo $query . "<br />";
+				return true;
+			}
+			
+			# Execute the query
+			$rows = $this->execute ($query, $preparedStatementValues, $showErrors);
+			
+			# Determine the result
+			$result = ($rows !== false);
+			
+			# Log the change
+			$this->logChange ($result);
 		}
 		
-		# In safe mode, only show the query
-		if ($safe) {
-			echo $query . "<br />";
-			return true;
-		}
-		
-		# Execute the query
-		$rows = $this->execute ($query, $preparedStatementValues, $showErrors);
-		
-		# Determine the result
-		$result = ($rows !== false);
-		
-		# Log the change
-		$this->logChange ($result);
-		
-		# Return the result
+		# Return the (last) result
 		return $result;
 	}
 	
@@ -1127,21 +1134,8 @@ class database
 			$uniqueField = $this->getUniqueField ($database, $table);
 		}
 		
-		# Chunk the records if required
-		$dataSetChunked = array ($dataSet);
-		if ($chunking) {
-			$dataSetChunked = array ();
-			$group = 0;
-			$i = 0;	// Record counter for this group
-			foreach ($dataSet as $key => $data) {
-				$dataSetChunked[$group][$key] = $data;
-				$i++;
-				if ($i == $chunking) {
-					$group++;	// Start new group
-					$i = 0;		// Reset the counter for this group
-				}
-			}
-		}
+		# Chunk the records if required; if not, the entire set will be put into a single container
+		$dataSetChunked = array_chunk ($dataSet, ($chunking ? $chunking : count ($dataSet)), true);
 		
 		# Loop through each chunk (which may be a single chunk containing the whole dataset if chunking is disabled)
 		foreach ($dataSetChunked as $dataSet) {

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.10
+ * Version 2.4.11
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -947,7 +947,7 @@ class database
 		$result = ($rows !== false);
 		
 		# Log the change
-		$this->logChange ($result);
+		$this->logChange ($result, true);
 		
 		# Return the result
 		return $result;
@@ -1074,7 +1074,7 @@ class database
 			$result = ($rows !== false);
 			
 			# Log the change
-			$this->logChange ($result);
+			$this->logChange ($result, true);
 		}
 		
 		# Return the (last) result
@@ -1712,7 +1712,7 @@ class database
 	
 	# Function to log a change
 	#!# Ideally have some way to throw an error if the logfile is not writable
-	public function logChange ($result)
+	public function logChange ($result, $insertId = false)
 	{
 		# End if logging disabled
 		if (!$this->logFile) {return false;}
@@ -1732,7 +1732,15 @@ class database
 		}
 		
 		# Create the log entry
-		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d H:i:s') . ' by ' . $this->userForLogging . ' */ ' . str_replace ("\r\n", '\\r\\n', $query);
+		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d H:i:s') . ' by ' . $this->userForLogging . ' */ ' . trim (str_replace ("\r\n", '\\r\\n', $query));
+		
+		# Append the insert ID as a comment if required
+		if ($insertId) {
+			$insertId = $this->getLatestId ();
+			if ($insertId != 0) {	// Non- auto-increment will have 0 returned; considered unlikely that a real application would start at 0
+				$logEntry .= "\t// RETURNING {$insertId}";
+			}
+		}
 		
 		# Log the change
 		file_put_contents ($this->logFile, $logEntry, FILE_APPEND);

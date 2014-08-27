@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.11
+ * Version 2.4.12
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1721,7 +1721,7 @@ class database
 		$query = $this->getQuery ();
 		
 		# Ensure the query ends with a newline
-		$query = trim ($query) . "\n";
+		$query = trim ($query);
 		
 		# End if the file is not writable, or the containing directory is not if the file does not exist
 		if (file_exists ($this->logFile)) {
@@ -1741,6 +1741,9 @@ class database
 				$logEntry .= "\t// RETURNING {$insertId}";
 			}
 		}
+		
+		# Add newline
+		$logEntry .= "\n";
 		
 		# Log the change
 		file_put_contents ($this->logFile, $logEntry, FILE_APPEND);

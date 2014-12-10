@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.13
+ * Version 2.4.14
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -707,8 +707,8 @@ class database
 	
 	
 	# Function to obtain a list of tables in a database
-	#!# A regexp filtering option would useful and could replace some client code
-	public function getTables ($database)
+	# $matchingRegexp enables filtering, e.g. '/tablename([0-9]+)/' ; if there is a capture (...) within this, then that will be used for the keys
+	public function getTables ($database, $matchingRegexp = false)
 	{
 		# Get the data
 		$query = "SHOW TABLES FROM `{$database}`;";
@@ -718,6 +718,22 @@ class database
 		$tables = array ();
 		foreach ($data as $index => $attributes) {
 			$tables[] = $attributes["Tables_in_{$database}"];
+		}
+		
+		# If a regexp is supplied, filter
+		if ($matchingRegexp) {
+			$tablesRaw = $tables;
+			$tables = array ();
+			foreach ($tablesRaw as $index => $table) {
+				if (preg_match ($matchingRegexp, $table, $matches)) {
+					if (isSet ($matches[1])) {	// If a capture is defined, use that as the key
+						$key = $matches[1];
+						$tables[$key] = $table;
+					} else {
+						$tables[] = $table;		// Auto-key
+					}
+				}
+			}
 		}
 		
 		# Return the data
@@ -1612,6 +1628,9 @@ class database
 				switch (true) {
 					case ($matches[1] == 'parent'):	// Special-case: if field is 'parentId' then treat as self-join to current table
 						$table = $currentTable;
+						break;
+					case (in_array (preg_replace ('/ss$/', 'sses', $matches[1]), $tables)):	// Pluraliser for ~ss => ~sses, e.g. addressId => addresses
+						$table =    preg_replace ('/ss$/', 'sses', $matches[1]);
 						break;
 					case (in_array ($matches[1] . 's', $tables)):	// Simple pluraliser, e.g. for a field 'caseId' look for a table 'cases'; if not present, it will assume 'case'
 						$table = $matches[1] . 's';

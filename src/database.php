@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-14
- * Version 2.4.14
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-15
+ * Version 2.4.15
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -597,7 +597,7 @@ class database
 		
 		# Detect keywords
 		if ($string == 'NOW()') {return true;}
-		if (preg_match ('/^POINTFROMTEXT\(/', $string)) {return true;}
+		if (preg_match ('/^(GEOMCOLL|GEOMETRYCOLLECTION|GEOM|GEOMETRY|LINE|LINESTRING|MLINE|MULTILINESTRING|MPOINT|MULTIPOINT|MPOLY|MULTIPOLYGON|POINT|POLY|POLYGON)FROMTEXT\(/', $string)) {return true;}
 		// Add more here
 		
 		# Treat as standard string if not detected
@@ -922,7 +922,7 @@ class database
 	
 	
 	# Function to construct and execute an INSERT statement
-	public function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false, /* Private: */ $private_ReplaceStatement = false)
+	public function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false, $statement = 'INSERT')
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
@@ -946,14 +946,8 @@ class database
 		# Handle ON DUPLICATE KEY UPDATE support
 		$onDuplicateKeyUpdate = $this->onDuplicateKeyUpdate ($onDuplicateKeyUpdate, $data);
 		
-		# Define the statement to use
-		$statement = 'INSERT INTO';
-		if ($private_ReplaceStatement) {
-			$statement = $private_ReplaceStatement;
-		}
-		
 		# Assemble the query
-		$query = "{$statement} `{$database}`.`{$table}` ({$fields}) VALUES ({$preparedValuePlaceholders}){$onDuplicateKeyUpdate};\n";
+		$query = "{$statement} INTO `{$database}`.`{$table}` ({$fields}) VALUES ({$preparedValuePlaceholders}){$onDuplicateKeyUpdate};\n";
 		
 		# In safe mode, only show the query
 		if ($safe) {
@@ -981,10 +975,10 @@ class database
 		# Limit to specific vendors
 		switch ($this->vendor) {
 			case 'mysql':
-				$replaceStatement = 'REPLACE INTO';
+				$replaceStatement = 'REPLACE';
 				break;
 			case 'sqlite':
-				$replaceStatement = 'REPLACE INTO';	// 'INSERT OR REPLACE INTO' is the SQLite standard, but 'REPLACE INTO' also works; see: http://stackoverflow.com/a/690679/180733
+				$replaceStatement = 'REPLACE';	// 'INSERT OR REPLACE' is the SQLite standard, but 'REPLACE' also works; see: http://stackoverflow.com/a/690679/180733
 				break;
 			default:
 				// Return false, as will never succeed
@@ -1019,7 +1013,7 @@ class database
 	
 	
 	# Function to construct and execute an INSERT statement containing many items
-	public function insertMany ($database, $table, $dataSet, $chunking = false, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false, /* Private: */ $private_ReplaceStatement = false)
+	public function insertMany ($database, $table, $dataSet, $chunking = false, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false, $statement = 'INSERT')
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($dataSet) || !$dataSet) {return false;}
@@ -1030,12 +1024,6 @@ class database
 		
 		# Assemble the field names
 		$fields = '`' . implode ('`,`', $fields) . '`';
-		
-		# Define the statement to use
-		$statement = 'INSERT INTO';
-		if ($private_ReplaceStatement) {
-			$statement = $private_ReplaceStatement;
-		}
 		
 		# Chunk the records if required; if not, the entire set will be put into a single container
 		$dataSetChunked = array_chunk ($dataSet, ($chunking ? $chunking : count ($dataSet)), true);
@@ -1073,7 +1061,7 @@ class database
 			$onDuplicateKeyUpdateThisChunk = $this->onDuplicateKeyUpdate ($onDuplicateKeyUpdate, $firstData);
 			
 			# Assemble the query
-			$query = "{$statement} `{$database}`.`{$table}` ({$fields}) VALUES (" . implode ('),(', $valuesPreparedSet) . "){$onDuplicateKeyUpdateThisChunk};\n";
+			$query = "{$statement} INTO `{$database}`.`{$table}` ({$fields}) VALUES (" . implode ('),(', $valuesPreparedSet) . "){$onDuplicateKeyUpdateThisChunk};\n";
 			
 			# Prevent submission of over-long queries
 			if ($maxLength = $this->getVariable ('max_allowed_packet')) {
@@ -1109,10 +1097,10 @@ class database
 		# Limit to specific vendors
 		switch ($this->vendor) {
 			case 'mysql':
-				$replaceStatement = 'REPLACE INTO';
+				$replaceStatement = 'REPLACE';
 				break;
 			case 'sqlite':
-				$replaceStatement = 'REPLACE INTO';	// 'INSERT OR REPLACE INTO' is the SQLite standard, but 'REPLACE INTO' also works; see: http://stackoverflow.com/a/690679/180733
+				$replaceStatement = 'REPLACE';	// 'INSERT OR REPLACE' is the SQLite standard, but 'REPLACE' also works; see: http://stackoverflow.com/a/690679/180733
 				break;
 			default:
 				// Return false, as will never succeed

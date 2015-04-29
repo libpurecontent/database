@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-15
- * Version 2.4.16
+ * Version 2.4.17
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -341,7 +341,7 @@ class database
 	
 	
 	# Function to export data served as a CSV, optimised to use low memory; this is a combination of database::getData() and csv::serve
-	public function serveCsv ($query, $preparedStatementValues = array (), $filenameBase = 'data', $timestamp = true, $headerLabels = array (), $zipped = false, $saveToDirectory = false /* or full directory path, slash-terminated */)
+	public function serveCsv ($query, $preparedStatementValues = array (), $filenameBase = 'data', $timestamp = true, $headerLabels = array (), $zipped = false /* false, or true (zip), or 'zip'/'gz') */, $saveToDirectory = false /* or full directory path, slash-terminated */)
 	{
 		# Global the query and any values
 		$this->query = $query;
@@ -394,8 +394,10 @@ class database
 		
 		# If zipped, emit the data in a zip enclosure
 		if ($zipped) {
+			$supportedFormats = array ('zip', 'gz');
+			$format = (is_string ($zipped) && in_array ($zipped, $supportedFormats) ? $zipped : $supportedFormats[0]);	// Default to first, zip
 			require_once ('application.php');
-			application::zipFromString ($csv, $filenameBase . '.csv', $saveToDirectory);
+			application::zipFromString ($csv, $filenameBase . '.csv', $saveToDirectory, $format);
 			return;
 		}
 		

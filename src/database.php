@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-15
- * Version 2.4.17
+ * Version 2.4.18
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -353,12 +353,25 @@ class database
 			return false;
 		}
 		
-		# Start a CSV string
+		# Add a timestamp to the filename if required
+		if ($timestamp) {
+			$filenameBase .= '_savedAt' . date ('Ymd-His');
+		}
+		
+		# Determine filename; the routine always writes to a file, even if this is subsequently removed, to avoid over-length strings (internal string size is max 2GB)
+		$filename = $filenameBase . '.csv';
+		$file = $saveToDirectory . $filename;
+		
+		# Delete any existing file, e.g. from an improperly-terminated run
+		if (is_file ($file)) {
+			unlink ($file);
+		}
+		
+		# Add CSV processing support
 		require_once ('csv.php');
-		$csv = '';
 		
 		# Define the number of records per chunk of CSV string to append, to keep memory usage down
-		$chunksOf = 100;
+		$chunksOf = 500;
 		
 		# Set chunking state
 		$data = array ();
@@ -373,7 +386,8 @@ class database
 			
 			# Add data periodically by processing the chunk when limit required
 			if ($i == $chunksOf) {
-				$csv .= csv::dataToCsv ($data, '', ',', $headerLabels, $includeHeaderRow);
+				$csvChunk = csv::dataToCsv ($data, '', ',', $headerLabels, $includeHeaderRow);
+				file_put_contents ($file, $csvChunk, FILE_APPEND);
 				
 				# Reset chunking state
 				$data = array ();
@@ -384,34 +398,32 @@ class database
 		
 		# Add residual data to the CSV if any left over (which will usually happen, unless the amount of data is exactly divisible by $chunksOf
 		if ($data) {
-			$csv .= csv::dataToCsv ($data, '', ',', $headerLabels, $includeHeaderRow);
-		}
-		
-		# Add a timestamp if required
-		if ($timestamp) {
-			$filenameBase .= '_savedAt' . date ('Ymd-His');
+			$csvChunk = csv::dataToCsv ($data, '', ',', $headerLabels, $includeHeaderRow);
+			file_put_contents ($file, $csvChunk, FILE_APPEND);
 		}
 		
 		# If zipped, emit the data in a zip enclosure
+		#!# Note that this leaves the original CSV file present, which may or may not be desirable
 		if ($zipped) {
 			$supportedFormats = array ('zip', 'gz');
 			$format = (is_string ($zipped) && in_array ($zipped, $supportedFormats) ? $zipped : $supportedFormats[0]);	// Default to first, zip
 			require_once ('application.php');
-			application::zipFromString ($csv, $filenameBase . '.csv', $saveToDirectory, $format);
+			application::createZip ($file, $filename, $saveToDirectory, $format);
 			return;
 		}
 		
-		# Save as a file if required and return its filename
+		# If required to save the file, leave the generated file in place, return at this point
 		if ($saveToDirectory) {
-			$file = $saveToDirectory . $filenameBase . '.csv';
-			file_put_contents ($file, $csv);
 			return $file;
 		}
 		
 		# Publish, by sending a header and then echoing the data
 		header ('Content-type: application/octet-stream');
-		header ('Content-Disposition: attachment; filename="' . $filenameBase . '.csv"');
+		header ('Content-Disposition: attachment; filename="' . $filename . '"');
 		echo $csv;
+		
+		# Delete the file
+		unlink ($file);
 	}
 	
 	
@@ -575,7 +587,7 @@ class database
 			if (preg_match ('/^([^\s]+)\s.+--\s(.+)$/', $line, $matches)) {
 				$comments[$matches[1]] = $matches[2];
 			}
-		}
+z		}
 		
 		# Map the structure, replacing the SQLite
 		foreach ($data as $index => $field) {

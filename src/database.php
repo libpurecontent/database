@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-15
- * Version 2.4.18
+ * Version 2.4.19
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -577,17 +577,21 @@ class database
 	# Function to emulate an SQLite table structure in MySQL format
 	private function sqliteTableStructureEmulation ($data, $table)
 	{
-		# Obtain the comments by obtaining the original CREATE TABLE SQL
+		# Obtain the comments and whether the field is unique by obtaining the original CREATE TABLE SQL
 		$ddlQuery = "SELECT name, sql FROM sqlite_master WHERE type='table' AND name='{$table}' ORDER BY name;";
 		$originalCreateTableQuery = $this->getOneField ($ddlQuery, 'sql');
 		$lines = explode ("\n", trim ($originalCreateTableQuery));
 		$comments = array ();
+		$unique = array ();
 		foreach ($lines as $id => $line) {
 			$line = str_replace ('`', '', trim ($line));
 			if (preg_match ('/^([^\s]+)\s.+--\s(.+)$/', $line, $matches)) {
 				$comments[$matches[1]] = $matches[2];
 			}
-z		}
+			if (substr_count ($line, 'UNIQUE')) {
+				$unique[$matches[1]] = true;
+			}
+		}
 		
 		# Map the structure, replacing the SQLite
 		foreach ($data as $index => $field) {
@@ -596,7 +600,7 @@ z		}
 				'Type'			=> $field['type'],
 				'Collation'		=> NULL,		// No support for this in SQLite
 				'Null'			=> !$field['notnull'],
-				'Key'			=> ($field['pk'] == '1' ? 'PRI' : false),
+				'Key'			=> ($field['pk'] == '1' ? 'PRI' : (isSet ($unique[$field['name']]) ? 'UNI' : false)),
 				'Default'		=> $field['dflt_value'],
 				'Extra'			=> ($field['type'] == 'INTEGER' && $field['pk'] == '1' ? 'auto_increment' : NULL),
 				'Privileges'	=> NULL,		// No support for this in SQLite
@@ -1041,7 +1045,10 @@ z		}
 		
 		# Determine the number of fields in the data by checking against the first item in the dataset
 		require_once ('application.php');
-		if (!$fields = application::arrayFieldsConsistent ($dataSet)) {return false;}
+		if (!$fields = application::arrayFieldsConsistent ($dataSet)) {
+			#!# This needs to set an error so that a subsequent ->error() call shows useful information
+			return false;
+		}
 		
 		# Assemble the field names
 		$fields = '`' . implode ('`,`', $fields) . '`';

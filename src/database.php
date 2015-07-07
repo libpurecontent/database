@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-15
- * Version 2.4.19
+ * Version 2.4.20
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -358,9 +358,12 @@ class database
 			$filenameBase .= '_savedAt' . date ('Ymd-His');
 		}
 		
+		# Determine the directory save location
+		$directory = ($saveToDirectory ? $saveToDirectory : sys_get_temp_dir () . '/');
+		
 		# Determine filename; the routine always writes to a file, even if this is subsequently removed, to avoid over-length strings (internal string size is max 2GB)
 		$filename = $filenameBase . '.csv';
-		$file = $saveToDirectory . $filename;
+		$file = $directory . $filename;
 		
 		# Delete any existing file, e.g. from an improperly-terminated run
 		if (is_file ($file)) {
@@ -420,7 +423,7 @@ class database
 		# Publish, by sending a header and then echoing the data
 		header ('Content-type: application/octet-stream');
 		header ('Content-Disposition: attachment; filename="' . $filename . '"');
-		echo $csv;
+		readfile ($file);
 		
 		# Delete the file
 		unlink ($file);

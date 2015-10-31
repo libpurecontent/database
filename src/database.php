@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-15
- * Version 2.5.0
+ * Version 2.5.1
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -663,7 +663,7 @@ class database
 				return 'numeric';
 			case preg_match ('/^(enum|set)/', $type):
 				return 'list';
-			case preg_match ('/^(date)/', $type):
+			case preg_match ('/^(date|year)/', $type):
 				return 'date';
 		}
 		
@@ -1117,6 +1117,9 @@ class database
 			
 			# Execute the query
 			$rows = $this->execute ($query, $preparedStatementValues, $showErrors);
+			
+			#!# Needs to report failure if one execution in a chunk failed; detect using $this->error () perhaps
+			// application::dumpData ($this->error ());
 			
 			# Determine the result
 			$result = ($rows !== false);

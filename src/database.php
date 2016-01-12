@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-15
- * Version 2.5.1
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-16
+ * Version 2.5.2
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -441,6 +441,9 @@ class database
 	# Function to do getData via pagination
 	public function getDataViaPagination ($query, $associative = false /* or string as "{$database}.{$table}" */, $keyed = true, $preparedStatementValues = array (), $onlyFields = array (), $paginationRecordsPerPage, $page = 1, $searchResultsMaximumLimit = false, $knownTotalAvailable = false)
 	{
+		# Trim the query to ensure that placeholder matching works consistently
+		$query = trim ($query);
+		
 		# If the total is already known, use that
 		if ($knownTotalAvailable) {
 			$totalAvailable = $knownTotalAvailable;
@@ -448,10 +451,10 @@ class database
 			
 			# Prepare the counting query; use a negative lookahead to match the section between SELECT ... FROM - see http://stackoverflow.com/questions/406230
 			$placeholders = array (
-				'/^\s*SELECT\s+(?!\s+FROM\s).+\s+FROM/misU' => 'SELECT COUNT(*) AS total FROM',
+				'/^SELECT\s+(?!\s+FROM\s).+\s+FROM/isU' => 'SELECT COUNT(*) AS total FROM',
 				# This works but isn't in use anywhere, so enable if/when needed with more testing '/^SELECT\s+DISTINCT\(([^)]+)\)\s+(?!\s+FROM ).+\s+FROM/' => 'SELECT COUNT(DISTINCT(\1)) AS total FROM',
 			);
-			$countingQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), trim ($query));
+			$countingQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), $query);
 			
 			# If any named placeholders are not now in the counting query, remove them from the list
 			$countingPreparedStatementValues = $preparedStatementValues;
@@ -484,7 +487,7 @@ class database
 		$placeholders = array (
 			'/;$/' => " LIMIT {$offset}, {$limitPerPage};",
 		);
-		$dataQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), trim ($query));
+		$dataQuery = preg_replace (array_keys ($placeholders), array_values ($placeholders), $query);
 		
 		# Get the data
 		$data = $this->getData ($dataQuery, $associative, $keyed, $preparedStatementValues, $onlyFields);

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-16
- * Version 2.5.4
+ * Version 2.5.5
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - http://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -744,6 +744,19 @@ class database
 	}
 	
 	
+	# Function to return whether a database (or match using %) exists (for which the caller has privileges)
+	public function databaseExists ($database)
+	{
+		# Get the data; note that this uses getData rather than getOne - getOne would return false if there was more than one match when using %; note that the caller will only be able to see those databases for which it has some kind of privilege, unless it has the global SHOW DATABASES privilege
+		$query = "SHOW DATABASES LIKE :database;";
+		$preparedStatementValues = array ('database' => $database);
+		$data = $this->getData ($query, false, true, $preparedStatementValues);
+		
+		# Return boolean result of whether there was a result (or more than one match)
+		return (bool) $data;
+	}
+	
+	
 	# Function to obtain a list of tables in a database
 	# $matchingRegexp enables filtering, e.g. '/tablename([0-9]+)/' ; if there is a capture (...) within this, then that will be used for the keys
 	public function getTables ($database, $matchingRegexp = false)
@@ -776,6 +789,25 @@ class database
 		
 		# Return the data
 		return $tables;
+	}
+	
+	
+	# Function to return whether a table (or match using %) in a specified database (NB matches not supported) exists (for which the caller has privileges)
+	public function tableExists ($database, $table)
+	{
+		# Disallow wildcards in the database specification
+		if (substr_count ($database, '%') || substr_count ($database, '_')) {return false;}
+		
+		# Ensure the specified database exists; this is necessary to avoid SQL injection attacks in the query below
+		if (!$this->databaseExists ($database)) {return false;}
+		
+		# Get the data; note that this uses getData rather than getOne - getOne would return false if there was more than one match when using %; note that the caller will only be able to see those databases for which it has some kind of privilege, unless it has the global SHOW DATABASES privilege
+		$query = "SHOW TABLES FROM {$database} LIKE :table;";
+		$preparedStatementValues = array ('table' => $table);
+		$data = $this->getData ($query, false, true, $preparedStatementValues);
+		
+		# Return boolean result of whether there was a result (or more than one match)
+		return (bool) $data;
 	}
 	
 	

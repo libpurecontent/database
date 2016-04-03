@@ -2,9 +2,9 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-16
- * Version 2.5.3
+ * Version 2.5.4
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
- * Distributed under the terms of the GNU Public Licence - www.gnu.org/copyleft/gpl.html
+ * Distributed under the terms of the GNU Public Licence - http://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
  */
@@ -169,20 +169,6 @@ class database
 	}
 	
 	
-	# Return the value of the field column from the single-result query
-	public function getOneField ($query, $field, $preparedStatementValues = array ())
-	{
-		# Get the result or end (returning null or false)
-		if (!$result = $this->getOne ($query, false, true, $preparedStatementValues)) {return $result;}
-		
-		# If the field doesn't exist, return false
-		if (!isSet ($result[$field])) {return false;}
-		
-		# Return the field
-		return $result[$field];
-	}
-	
-	
 	# A single row of data from the query is expected and returned; otherwise false is returned (never NULL)
 	public function expectOne ($query)
 	{
@@ -194,13 +180,29 @@ class database
 	}
 	
 	
-	# A single row of data from the query is expected and returned; otherwise false is returned
-	public function expectOneField ($query, $field)
+	# Return the value of the field column from the single-result query
+	public function getOneField ($query, $field, $preparedStatementValues = array ())
 	{
-		// Without any error handling this is the same as getOneField
-		#!# Is this expectOneField() function needed therefore - or is this just incomplete?
-		$result = $this->getOneField ($query, $field);
+		# Get the result or end (returning NULL or false)
+		if (!$result = $this->getOne ($query, false, true, $preparedStatementValues)) {return $result;}
+		
+		# If the field doesn't exist, return false
+		if (!isSet ($result[$field])) {return false;}
+		
+		# Return the field
+		return $result[$field];
+	}
+	
+	
+	# A single field of data from the query is expected and returned; otherwise false is returned (never NULL)
+	public function expectOneField ($query, $field, $preparedStatementValues = array ())
+	{
+		# Get the data
+		$result = $this->getOneField ($query, $field, $preparedStatementValues);
     	
+		# NULL is interpreted as an error
+		if (is_null ($result)) {return false;}
+		
 		# Return the result
 		return $result;
 	}

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-16
- * Version 2.5.5
+ * Version 2.6.0
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - http://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -13,13 +13,18 @@
 # Class containing basic generalised database manipulation functions for PDO
 class database
 {
-	# Global class variables
+	# General class properties
 	public $connection = NULL;
 	private $preparedStatement = NULL;
 	private $query = NULL;
 	private $queryValues = NULL;
 	private $strictWhere = false;
 	private $fieldsCache = array ();
+	
+	# Error logger properties
+	private $errorLoggerCallback = NULL;
+	private $errorLoggerCustomCode = NULL;
+	private $errorLoggerCustomCodeText = NULL;
 	
 	
 	# Function to connect to the database
@@ -87,6 +92,52 @@ class database
 	public function setStrictWhere ($boolean = true)
 	{
 		$this->strictWhere = $boolean;
+	}
+	
+	
+	# Function to register an error logger callback; the callback should either be a function name or specified as an array (object instance, publicly-visible method)
+	public function registerErrorLogger ($callback)
+	{
+		# Register the callback
+		$this->errorLoggerCallback = $callback;
+	}
+	
+	
+	# Function to set a custom error code and text that will be applied to the following call only
+	public function errorCode ($code = NULL, $text = NULL)
+	{
+		# Register the code and text
+		$this->errorLoggerCustomCode = $code;
+		$this->errorLoggerCustomCodeText = $text;
+	}
+	
+	
+	# Function to reset any custom error code
+	private function resetErrorCode ()
+	{
+		# Reset the values
+		$this->errorCode ();
+	}
+	
+	
+	# Function to call the error logger, if it is defined; currently this supports only an external callback
+	public function logError ($function)
+	{
+		# End if no callback
+		if (!$this->errorLoggerCallback) {return;}
+		
+		# Call the logger, sending back the called function (e.g. 'query', 'getData', 'select', etc.) and the error details
+		if (is_array ($this->errorLoggerCallback)) {
+			$class  = $this->errorLoggerCallback[0];
+			$method = $this->errorLoggerCallback[1];
+			$class->$method ($function, $this->error (), $this->errorLoggerCustomCode, $this->errorLoggerCustomCodeText);
+		} else {
+			$callback = $this->errorLoggerCallback;
+			$callback ($function, $this->error (), $this->errorLoggerCustomCode, $this->errorLoggerCustomCodeText);
+		}
+		
+		# Reset any custom error code and text
+		$this->resetErrorCode ();
 	}
 	
 	
@@ -286,6 +337,7 @@ class database
 			$this->preparedStatement = $this->connection->prepare ($query);
 			#!# This sometimes gives off warnings - would be good to catch these
 			if (!$this->preparedStatement->execute ($preparedStatementValues)) {
+				$this->logError (__FUNCTION__);
 				return $data;
 			}
 			
@@ -297,6 +349,7 @@ class database
 			
 			# Assign the query
 			if (!$statement = $this->connection->query ($query)) {
+				$this->logError (__FUNCTION__);
 				return $data;
 			}
 			
@@ -320,6 +373,7 @@ class database
 			
 			# Return as non-keyed data if no unique field
 			if (!$uniqueField) {
+				$this->logError (__FUNCTION__);
 				return $data;
 			}
 			
@@ -344,6 +398,9 @@ class database
 				}
 			}
 		}
+		
+		# Reset any custom error code
+		$this->resetErrorCode ();
 		
 		# Return the array
 		return $data;

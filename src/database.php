@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-16
- * Version 2.6.0
+ * Version 2.6.1
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/best-way-to-stop-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - http://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1983,6 +1983,14 @@ class database
 		
 		# Return the query
 		return $query;
+	}
+	
+	
+	# Function to get the session status values; see: https://dev.mysql.com/doc/refman/5.7/en/server-status-variables.html
+	public function getSessionStatus ()
+	{
+		# Get the data and return the value
+		return $this->getPairs ('SHOW SESSION STATUS;');
 	}
 	
 	

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-16
- * Version 3.0.0
+ * Version 3.0.1
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - http://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -228,14 +228,14 @@ class database
 			}
 			
 			# In execute mode, get the number of affected rows
-			if ($mode == 'execute') {
+			if ($mode == '_execute') {
 				$result = $this->preparedStatement->rowCount ();
 			}
 			
 		} else {
 			
 			# Execute the query and get the number of affected rows
-			$function = ($mode == 'query' ? 'query' : 'exec');
+			$function = ($mode == '_query' ? 'query' : 'exec');
 			try {
 				$result = $this->connection->$function ($query);
 			} catch (PDOException $e) {		// Enabled by PDO::ERRMODE_EXCEPTION in constructor

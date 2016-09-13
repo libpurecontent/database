@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-16
- * Version 3.0.1
+ * Version 3.0.2
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - http://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -695,7 +695,7 @@ class database
 		$data = $this->_getData ($dataQuery, $associative, $keyed, $preparedStatementValues, $onlyFields);
 		
 		# Return the data and metadata
-		return array ($data, $totalAvailable, $totalPages, $page, $actualMatchesReachedMaximum);
+		return array ($data, (int) $totalAvailable, $totalPages, $page, $actualMatchesReachedMaximum);
 	}
 	
 	
@@ -1609,6 +1609,7 @@ class database
 		$query = "DELETE FROM `{$database}`.`{$table}`{$where}{$limit};\n";
 		
 		# Execute the query
+		#!# Currently unable to distinguish syntax error vs nothing to delete
 		$result = $this->_execute ($query, $conditions);
 		
 		# Log the change

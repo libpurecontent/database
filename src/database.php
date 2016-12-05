@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-16
- * Version 3.0.2
+ * Version 3.0.3
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - http://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -838,7 +838,7 @@ class database
 		
 		# Detect keywords
 		if ($string == 'NOW()') {return true;}
-		if (preg_match ('/^(GEOMCOLL|GEOMETRYCOLLECTION|GEOM|GEOMETRY|LINE|LINESTRING|MLINE|MULTILINESTRING|MPOINT|MULTIPOINT|MPOLY|MULTIPOLYGON|POINT|POLY|POLYGON)FROMTEXT\(/', $string)) {return true;}
+		if (preg_match ('/^(ST_)?(GEOMCOLL|GEOMETRYCOLLECTION|GEOM|GEOMETRY|LINE|LINESTRING|MLINE|MULTILINESTRING|MPOINT|MULTIPOINT|MPOLY|MULTIPOLYGON|POINT|POLY|POLYGON)FROMTEXT\(/', $string)) {return true;}
 		// Add more here
 		
 		# Treat as standard string if not detected

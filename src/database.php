@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-16
- * Version 3.0.3
+ * Version 3.0.4
  * Uses prepared statements (see http://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - http://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -561,6 +561,9 @@ class database
 		# Execute the statement (ending if there is an error in the query or parameters)
 		try {
 			$this->preparedStatement = $this->connection->prepare ($query);
+			if ($this->vendor == 'mysql') {
+				$this->connection->setAttribute (PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
+			}
 			$this->preparedStatement->execute ($preparedStatementValues);
 		} catch (PDOException $e) {		// Enabled by PDO::ERRMODE_EXCEPTION in constructor
 			return false;

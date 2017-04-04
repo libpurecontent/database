@@ -1,10 +1,10 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-16
- * Version 3.0.4
- * Uses prepared statements (see http://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
- * Distributed under the terms of the GNU Public Licence - http://www.gnu.org/copyleft/gpl.html
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-17
+ * Version 3.0.5
+ * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
+ * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
  * Download latest from: http://download.geog.cam.ac.uk/projects/database/
  */
@@ -655,6 +655,7 @@ class database
 			
 			# Prepare the counting query; use a negative lookahead to match the section between SELECT ... FROM - see http://stackoverflow.com/questions/406230
 			#!# "ORDER BY generatedcolumn, ..." will cause a failure, but we cannot wipe out '/\s+ORDER\s+BY\s+.+$/isU' because a LIMIT clause may follow
+			#!# TRIM(... FROM ...) in the SELECT clause will a failure
 			$placeholders = array (
 				'/^SELECT\s+(?!\s+FROM\s).+\s+FROM/isU' => 'SELECT COUNT(*) AS total FROM',
 				# This works but isn't in use anywhere, so enable if/when needed with more testing '/^SELECT\s+DISTINCT\(([^)]+)\)\s+(?!\s+FROM ).+\s+FROM/' => 'SELECT COUNT(DISTINCT(\1)) AS total FROM',
@@ -2189,13 +2190,35 @@ class database
 	
 	
 	# Function to do sort trimming of a field name, to be put in an ORDER BY clause
-	public function trimSql ($fieldname)
+	public function trimSql ($fieldname, $additionalTokens = array ())
 	{
 		# Assemble the fieldname quoted
 		$fieldname = '`' . str_replace ('.', '`.`', $fieldname) . '`';
 		
+		# Define strings to trim
+		$strings = array (
+			'the ',
+			'an ',
+			'a ',
+			'@',
+			"'",
+			'"',
+			'[',
+			'(',
+			'}',
+			'{',
+		);
+		
+		# Add additional tokens
+		if ($additionalTokens) {
+			$strings = array_merge ($strings, $additionalTokens);
+		}
+		
 		# Assemble the SQL
-		$sql = "TRIM( LEADING '{' FROM TRIM( LEADING '}' FROM TRIM( LEADING '(' FROM TRIM( LEADING '[' FROM TRIM( LEADING '\"' FROM TRIM( LEADING \"'\" FROM TRIM( LEADING '@' FROM TRIM( LEADING 'a ' FROM TRIM( LEADING 'an ' FROM TRIM( LEADING 'the ' FROM LOWER( {$fieldname} ) ) ) ) ) ) ) ) ) ) )";
+		$sql = "LOWER( {$fieldname} )";
+		foreach ($strings as $string) {
+			$sql = "TRIM( LEADING '" . str_replace ("'", "\'", $string) . "' FROM {$sql} )";
+		}
 		
 		# Return the SQL
 		return $sql;

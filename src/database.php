@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-17
- * Version 3.0.5
+ * Version 3.0.6
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -721,7 +721,7 @@ class database
 	
 	
 	# Function to get fields
-	public function getFields ($database, $table, $addSimpleType = false, $matchingRegexpNoForwardSlashes = false, $asTotal = false)
+	public function getFields ($database, $table, $addSimpleType = false, $matchingRegexpNoForwardSlashes = false, $asTotal = false, $excludeAuto = false)
 	{
 		# If the raw fields list is already in the fields cache, use that to avoid a pointless SHOW FULL FIELDS lookup
 		if (isSet ($this->fieldsCache[$database]) && isSet ($this->fieldsCache[$database][$table])) {
@@ -779,6 +779,15 @@ class database
 		if ($matchingRegexpNoForwardSlashes) {
 			foreach ($fields as $field => $attributes) {
 				if (!preg_match ("/{$matchingRegexpNoForwardSlashes}/", $field)) {
+					unset ($fields[$field]);
+				}
+			}
+		}
+		
+		# Exclude automatic fields if required
+		if ($excludeAuto) {
+			foreach ($fields as $field => $attributes) {
+				if ($attributes['Extra'] == 'auto_increment' || $attributes['Default'] == 'CURRENT_TIMESTAMP') {
 					unset ($fields[$field]);
 				}
 			}
@@ -900,10 +909,10 @@ class database
 	
 	
 	# Function to get field names
-	public function getFieldNames ($database, $table, $fields = false, $matchingRegexpNoForwardSlashes = false)
+	public function getFieldNames ($database, $table, $fields = false, $matchingRegexpNoForwardSlashes = false, $excludeAuto = false)
 	{
 		# Get the fields if not already supplied
-		if (!$fields) {$fields = $this->getFields ($database, $table, false, $matchingRegexpNoForwardSlashes);}
+		if (!$fields) {$fields = $this->getFields ($database, $table, false, $matchingRegexpNoForwardSlashes, false, $excludeAuto);}
 		
 		#!# Bug: $matchingRegexpNoForwardSlashes is not used if $fields is supplied
 		
@@ -913,10 +922,10 @@ class database
 	
 	
 	# Function to get field descriptions as a simple associative array
-	public function getHeadings ($database, $table, $fields = false, $useFieldnameIfEmpty = true, $commentsAsHeadings = true)
+	public function getHeadings ($database, $table, $fields = false, $useFieldnameIfEmpty = true, $commentsAsHeadings = true, $excludeAuto = false)
 	{
 		# Get the fields if not already supplied
-		if (!$fields) {$fields = $this->getFields ($database, $table);}
+		if (!$fields) {$fields = $this->getFields ($database, $table, false, false, false, $excludeAuto);}
 		
 		# Rearrange the data
 		$headings = array ();
@@ -1106,7 +1115,7 @@ class database
 	
 	
 	# Function to construct and execute a SELECT statement
-	public function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false, $limit = false, $keyed = true)
+	public function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false, $limit = false, $keyed = true, $like = false /* or true or array of fields */)
 	{
 		# Construct the WHERE clause
 		$where = '';
@@ -1128,7 +1137,9 @@ class database
 						unset ($conditions[$key]);	// Remove the original placeholder as that will never be used, and contains an array
 						$where[] = '`' . $key . '`' . ' IN(:' . implode (', :', array_keys ($conditionsThisGroup)) . ')';
 					} else {
-						$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '`' . ' = :' . $key;
+						$useLike = ($like === true || (is_array ($like) && in_array ($key, $like)));
+						$operator = ($useLike ? 'LIKE' : '=');
+						$where[] = ($this->strictWhere ? 'BINARY ' : '') . '`' . $key . '`' . " {$operator} :" . $key;
 					}
 				}
 			} else if (is_string ($conditions)) {

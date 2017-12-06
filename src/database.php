@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-17
- * Version 3.0.6
+ * Version 3.0.7
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1106,7 +1106,7 @@ class database
 		# Quote the string by calling the PDO quoting method
 		$string = $this->connection->quote ($string);
 		
-		# Undo (unwanted automatic) backlash quoting in PDO::quote, i.e replace \\ with \ in the string; see discussion at http://www.bitpapers.com/2012/03/php-escaping-quotes.html
+		# Undo (unwanted automatic) backlash quoting in PDO::quote, i.e replace \\ with \ in the string
 		$string = str_replace ('\\\\', '\\', $string);
 		
 		# Return the quoted string
@@ -1225,11 +1225,11 @@ class database
 	
 	
 	# Function to select data and return as pairs
-	public function selectPairs ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false, $limit = false)
+	public function selectPairs ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false, $limit = false, $like = false /* or true or array of fields */)
 	{
 		# Get the data, unkeyed (so that each record contains array(0=>value,1=>2)) (which therefore requires associative=false
 		$associative = false;
-		$data = $this->select ($database, $table, $conditions, $columns, $associative, $orderBy, $limit, $keyed = false);
+		$data = $this->select ($database, $table, $conditions, $columns, $associative, $orderBy, $limit, $keyed = false, $like);
 		
 		# Convert to pairs
 		$pairs = $this->toPairs ($data);
@@ -1338,7 +1338,9 @@ class database
 		
 		# Determine the number of fields in the data by checking against the first item in the dataset
 		require_once ('application.php');
-		if (!$fields = application::arrayFieldsConsistent ($dataSet)) {
+		if (!$fields = application::arrayFieldsConsistent ($dataSet, $failedAt)) {
+			echo "ERROR: Inconsistent array fields in insertMany, failing at:";
+			application::dumpData ($failedAt);
 			#!# This needs to set an error so that a subsequent ->error() call shows useful information
 			return false;
 		}
@@ -1387,13 +1389,14 @@ class database
 			# Prevent submission of over-long queries
 			if ($maxLength = $this->getVariable ('max_allowed_packet')) {
 				if (strlen ($query) > (int) $maxLength) {
+					echo "ERROR: Over-long query in insertMany";
 					return false;
 				}
 			}
 			
 			# In safe mode, only show the query
 			if ($safe) {
-				echo $query . "<br />";
+				echo $query . '<br />';
 				return true;
 			}
 			

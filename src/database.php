@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-17
- * Version 3.0.7
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-18
+ * Version 3.0.8
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -57,7 +57,7 @@ class database
 			}
 		}
 		
-		# Enable exception throwing; see: http://php.net/pdo.error-handling
+		# Enable exception throwing; see: https://php.net/pdo.error-handling
 		$driverOptions[PDO::ATTR_ERRMODE] = PDO::ERRMODE_EXCEPTION;
 		
 		# Connect to the database and return the status
@@ -552,7 +552,7 @@ class database
 	
 	
 	# Function to export data served as a CSV, optimised to use low memory; this is a combination of database::getData() and csv::serve
-	public function serveCsv ($query, $preparedStatementValues = array (), $filenameBase = 'data', $timestamp = true, $headerLabels = array (), $zipped = false /* false, or true (zip), or 'zip'/'gz') */, $saveToDirectory = false /* or full directory path, slash-terminated */, $includeHeaderRow = true, $chunksOf = 500)
+	public function serveCsv ($query, $preparedStatementValues = array (), $filenameBase = 'data', $timestamp = true, $headerLabels = array (), $zipped = false /* false, or true (zip), or 'zip'/'gz') */, $saveToDirectory = false /* or full directory path, slash-terminated */, $includeHeaderRow = true, $chunksOf = 500, $initialNotice = false)
 	{
 		# Global the query and any values
 		$this->query = $query;
@@ -588,6 +588,11 @@ class database
 		
 		# Add CSV processing support
 		require_once ('csv.php');
+		
+		# Add an initial notice header line, e.g. for a copyright notice, if required; this is treated as a single cell with an extra row after
+		if ($initialNotice) {
+			file_put_contents ($file, csv::safeDataCell ($initialNotice) . "\n\n", FILE_APPEND);
+		}
 		
 		# Set chunking state
 		$data = array ();
@@ -1339,7 +1344,7 @@ class database
 		# Determine the number of fields in the data by checking against the first item in the dataset
 		require_once ('application.php');
 		if (!$fields = application::arrayFieldsConsistent ($dataSet, $failedAt)) {
-			echo "ERROR: Inconsistent array fields in insertMany, failing at:";
+			echo 'ERROR: Inconsistent array fields in ' . strtolower ($statement) . 'Many, failing at:';
 			application::dumpData ($failedAt);
 			#!# This needs to set an error so that a subsequent ->error() call shows useful information
 			return false;

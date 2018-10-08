@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-18
- * Version 3.0.8
+ * Version 3.0.9
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -997,7 +997,7 @@ class database
 	
 	# Function to obtain a list of tables in a database
 	# $matchingRegexp enables filtering, e.g. '/tablename([0-9]+)/' ; if there is a capture (...) within this, then that will be used for the keys
-	public function getTables ($database, $matchingRegexp = false)
+	public function getTables ($database, $matchingRegexp = false, $excludeTables = array (), $withLabels = false)
 	{
 		# Get the data
 		$query = "SHOW TABLES FROM `{$database}`;";
@@ -1023,6 +1023,20 @@ class database
 					}
 				}
 			}
+		}
+		
+		# If required, filter out tables to exclude
+		if ($excludeTables) {
+			$tables = array_diff ($tables, $excludeTables);
+		}
+		
+		# If required, arrange as array (table => comment, ...)
+		$tablesWithLabels = array ();
+		if ($withLabels) {
+			foreach ($tables as $table) {
+				$tablesWithLabels[$table] = $this->getTableComment ($database, $table);
+			}
+			$tables = $tablesWithLabels;
 		}
 		
 		# Return the data
@@ -1409,7 +1423,9 @@ class database
 			$rows = $this->_execute ($query, $preparedStatementValues, $showErrors);
 			
 			#!# Needs to report failure if one execution in a chunk failed; detect using $this->error () perhaps
-			// application::dumpData ($this->error ());
+if (!$rows) {
+			application::dumpData ($this->error ());
+}
 			
 			# Determine the result
 			$result = ($rows !== false);

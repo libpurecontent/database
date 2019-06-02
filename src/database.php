@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-18
- * Version 3.0.9
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-19
+ * Version 3.0.10
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -856,7 +856,7 @@ class database
 		
 		# Detect keywords
 		if ($string == 'NOW()') {return true;}
-		if (preg_match ('/^(ST_)?(GEOMCOLL|GEOMETRYCOLLECTION|GEOM|GEOMETRY|LINE|LINESTRING|MLINE|MULTILINESTRING|MPOINT|MULTIPOINT|MPOLY|MULTIPOLYGON|POINT|POLY|POLYGON)FROMTEXT\(/', $string)) {return true;}
+		if (preg_match ('/^(ST_)?(GEOMCOLL|GEOMETRYCOLLECTION|GEOM|GEOMETRY|LINE|LINESTRING|MLINE|MULTILINESTRING|MPOINT|MULTIPOINT|MPOLY|MULTIPOLYGON|POINT|POLY|POLYGON)FROM(TEXT|GEOJSON)\(/', $string)) {return true;}
 		// Add more here
 		
 		# Treat as standard string if not detected
@@ -1259,7 +1259,7 @@ class database
 	
 	
 	# Function to construct and execute an INSERT statement
-	public function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false, $statement = 'INSERT')
+	public function insert ($database, $table, $data, $onDuplicateKeyUpdate = false, $emptyToNull = true, $safe = false, $showErrors = false, $statement = 'INSERT', $functionValues = array ())
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
@@ -1279,6 +1279,11 @@ class database
 			$preparedValuePlaceholders[] = ':' . $key;
 		}
 		$preparedValuePlaceholders = implode (', ', $preparedValuePlaceholders);
+		
+		# Add any additional placeholders for functions, e.g. location => ST_GeomFromGeoJSON(:location) supplied with $functionValues = array (location = '{...}')
+		if ($functionValues) {
+			$data = array_merge ($data, $functionValues);
+		}
 		
 		# Handle ON DUPLICATE KEY UPDATE support
 		$onDuplicateKeyUpdate = $this->onDuplicateKeyUpdate ($onDuplicateKeyUpdate, $data);

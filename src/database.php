@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-19
- * Version 3.0.10
+ * Version 3.0.11
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -726,7 +726,7 @@ class database
 	
 	
 	# Function to get fields
-	public function getFields ($database, $table, $addSimpleType = false, $matchingRegexpNoForwardSlashes = false, $asTotal = false, $excludeAuto = false)
+	public function getFields ($database, $table, $addSimpleType = false, $matchingRegexpNoForwardSlashes = false, $asTotal = false, $excludeAuto = false, $groupByCapture = false)
 	{
 		# If the raw fields list is already in the fields cache, use that to avoid a pointless SHOW FULL FIELDS lookup
 		if (isSet ($this->fieldsCache[$database]) && isSet ($this->fieldsCache[$database][$table])) {
@@ -798,6 +798,17 @@ class database
 			}
 		}
 		
+		# Group, if required, using the specified capture in the regexp
+		if ($groupByCapture && $matchingRegexpNoForwardSlashes) {
+				$fieldsGrouped = array ();
+				foreach ($fields as $field => $attributes) {
+					preg_match ("/{$matchingRegexpNoForwardSlashes}/", $field, $matches);
+					$group = $matches[$groupByCapture];
+					$fieldsGrouped[$group][$field] = $attributes;
+				}
+				$fields = $fieldsGrouped;
+		}
+
 		# If returning as a total, convert to a count
 		if ($asTotal) {
 			$fields = count ($fields);
@@ -914,15 +925,22 @@ class database
 	
 	
 	# Function to get field names
-	public function getFieldNames ($database, $table, $fields = false, $matchingRegexpNoForwardSlashes = false, $excludeAuto = false)
+	public function getFieldNames ($database, $table, $fields = false, $matchingRegexpNoForwardSlashes = false, $excludeAuto = false, $groupByCapture = false)
 	{
 		# Get the fields if not already supplied
-		if (!$fields) {$fields = $this->getFields ($database, $table, false, $matchingRegexpNoForwardSlashes, false, $excludeAuto);}
+		if (!$fields) {$fields = $this->getFields ($database, $table, false, $matchingRegexpNoForwardSlashes, false, $excludeAuto, $groupByCapture);}
 		
 		#!# Bug: $matchingRegexpNoForwardSlashes is not used if $fields is supplied
 		
 		# Get the array keys of the fields
-		return array_keys ($fields);
+		if ($groupByCapture) {
+			foreach ($fields as $group => $fieldsInGroup) {
+				$fields[$group] = array_keys ($fieldsInGroup);
+			}
+			return $fields;
+		} else {
+			return array_keys ($fields);
+		}
 	}
 	
 	

@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-19
- * Version 3.0.11
+ * Version 3.0.12
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1447,7 +1447,7 @@ class database
 			
 			#!# Needs to report failure if one execution in a chunk failed; detect using $this->error () perhaps
 if (!$rows) {
-			application::dumpData ($this->error ());
+//			application::dumpData ($this->error ());
 }
 			
 			# Determine the result
@@ -1484,7 +1484,7 @@ if (!$rows) {
 	
 	
 	# Function to construct and execute an UPDATE statement
-	public function update ($database, $table, $data, $conditions = array (), $emptyToNull = true, $safe = false, $returnRowCount = false)
+	public function update ($database, $table, $data, $conditions = array (), $emptyToNull = true, $safe = false, $returnRowCount = false, $_ignoredArg = NULL /* so that functionValues is same position as insert */, $functionValues = array ())
 	{
 		# Ensure the data is an array and that there is data
 		if (!is_array ($data) || !$data) {return false;}
@@ -1498,7 +1498,7 @@ if (!$rows) {
 			
 			# Add the data
 			if ($emptyToNull && ($data[$key] === '')) {$data[$key] = NULL;}	// Convert empty to NULL if required
-			if ($data[$key] == 'NOW()') {	// Special handling for keywords, which are not quoted
+			if ($this->valueIsFunctionCall ($data[$key])) {	// Special handling for keywords, which are not quoted
 				$preparedValueUpdates[] = "`{$key}`= " . $data[$key];
 				unset ($data[$key]);
 				continue;
@@ -1510,6 +1510,11 @@ if (!$rows) {
 			$dataUniqued[$placeholder] = $data[$key];
 		}
 		$preparedValueUpdates = implode (',', $preparedValueUpdates);
+		
+		# Add any additional placeholders for functions, e.g. location => ST_GeomFromGeoJSON(:location) supplied with $functionValues = array (location = '{...}')
+		if ($functionValues) {
+			$dataUniqued = array_merge ($dataUniqued, $functionValues);
+		}
 		
 		# Construct the WHERE clause
 		$where = '';

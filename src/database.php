@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-19
- * Version 3.0.12
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-20
+ * Version 3.0.13
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1130,11 +1130,6 @@ class database
 	# Function to deal with quotation, i.e. escaping AND adding quotation marks around the item
 	/* private */ public function quote ($string)
 	{
-		# Strip slashes if necessary
-		if (get_magic_quotes_gpc ()) {
-			$string = stripslashes ($string);
-		}
-		
 		# Special case a timestamp indication as unquoted SQL
 		if ($string == 'NOW()') {
 			return $string;

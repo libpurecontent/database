@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-20
- * Version 3.0.13
+ * Version 3.0.14
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1188,12 +1188,14 @@ class database
 		}
 		
 		# Construct the columns part; if the key is numeric, assume it's not a key=>value pair, but that the value is the fieldname
+		#!# This section needs to quote all fieldnames - hotfix added for 'rank'
 		$what = '*';
 		if ($columns) {
 			$what = array ();
 			if (is_array ($columns)) {
 				foreach ($columns as $key => $value) {
 					if (is_numeric ($key)) {
+						if ($value == 'rank') {$value = "`{$value}`";}	// Hotfix - see above, added for MySQL 8 compatibility
 						$what[] = $value;
 					} else {
 						$what[] = "{$key} AS {$value}";

@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-20
- * Version 3.0.15
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-21
+ * Version 3.0.16
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -2167,7 +2167,7 @@ if (!$rows) {
 				file_put_contents ($filename, date ('r'));
 				$errorMessage .= "\n\nWhen the error has been corrected, you must delete the error notification flag file at\n{$filename}";
 			} else {
-				$errorMessage .= "\n\nAdditionally, an errornotifiedflagfile could not be written, so further e-mails like this will continue.";
+				$errorMessage .= "\n\nAdditionally, an errornotifiedflagfile could not be written to {$filename}, so further e-mails like this will continue.";
 			}
 			
 			# Add the URL

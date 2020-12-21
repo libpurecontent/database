@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-20
- * Version 3.0.14
+ * Version 3.0.15
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1101,6 +1101,16 @@ class database
 		# Return the latest ID
 		#!# Does this need exception handling?
 		return $this->connection->lastInsertId ();
+	}
+	
+	
+	# Function to get the projected ID for an auto-increment operation; note that this should not be relied upon as another thread may do an insert
+	public function getProjectedId ($database, $table)
+	{
+		# Get and return the result
+		$conditions = array ('TABLE_SCHEMA' => $database, 'TABLE_NAME' => $table);
+		$id = $this->selectOneField ('information_schema', 'TABLES', 'AUTO_INCREMENT', $conditions);
+		return $id;
 	}
 	
 	

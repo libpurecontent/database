@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-21
- * Version 3.0.16
+ * Version 3.0.17
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -648,7 +648,8 @@ class database
 	
 	
 	# Function to do getData via pagination
-	public function getDataViaPagination ($query, $associative = false /* or string as "{$database}.{$table}" */, $keyed = true, $preparedStatementValues = array (), $onlyFields = array (), $paginationRecordsPerPage, $page = 1, $searchResultsMaximumLimit = false, $knownTotalAvailable = false)
+	# The paginationRecordsPerPage value should be customised based on the UI requirements; a default is set in this method signature merely to avoid deprecation warnings about required parameter following optional parameter
+	public function getDataViaPagination ($query, $associative = false /* or string as "{$database}.{$table}" */, $keyed = true, $preparedStatementValues = array (), $onlyFields = array (), $paginationRecordsPerPage = 50, $page = 1, $searchResultsMaximumLimit = false, $knownTotalAvailable = false)
 	{
 		# Trim the query to ensure that placeholder matching works consistently
 		$query = trim ($query);
@@ -2134,7 +2135,7 @@ if (!$rows) {
 		if ($insertId) {
 			$insertId = $this->getLatestId ();
 			if ($insertId != 0) {	// Non- auto-increment will have 0 returned; considered unlikely that a real application would start at 0
-				$logEntry .= "\t// RETURNING {$insertId}";
+				$logEntry .= "\t-- // RETURNING {$insertId}";
 			}
 		}
 		

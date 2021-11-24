@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-21
- * Version 3.0.17
+ * Version 3.0.18
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1805,6 +1805,23 @@ if (!$rows) {
 		
 		# Return the result
 		return $result;
+	}
+	
+	
+	# Function to archive a data table, appending the date, if not already done on the current day
+	public function archiveTable ($table, $tables)
+	{
+		# Determine the proposed archive table name, as <table>_<dateYmd>, e.g. records_180801
+		$archiveTable = $table . '_' . date ('Ymd');
+		
+		# Do not archive if the table already exists
+		if (in_array ($archiveTable, $tables)) {return;}
+		
+		# Archive the data, by creating the table and copying the data in
+		$sql = "CREATE TABLE {$archiveTable} LIKE {$table};";
+		$this->databaseConnection->execute ($sql);
+		$sql = "INSERT INTO {$archiveTable} SELECT * FROM {$table};";
+		$this->databaseConnection->execute ($sql);
 	}
 	
 	

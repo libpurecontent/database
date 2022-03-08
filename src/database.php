@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-22
- * Version 3.1.1
+ * Version 3.1.2
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1602,7 +1602,7 @@ if (!$rows) {
 			$preparedStatementValues = array ();
 			$keyPlaceholders = array ();
 			foreach ($fields as $index => $field) {
-				$querySetCaseBlocks[$field]  = "`{$field}` = CASE id";
+				$querySetCaseBlocks[$field]  = "`{$field}` = CASE `{$uniqueField}`";
 				$keyPlaceholderId = 0;	// These can be reused
 				foreach ($dataSet as $key => $data) {
 					$value = $data[$field];

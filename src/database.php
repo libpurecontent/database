@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-22
- * Version 4.0.0
+ * Version 4.0.1
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -95,6 +95,13 @@ class database
 	public function setStrictWhere ($boolean = true)
 	{
 		$this->strictWhere = $boolean;
+	}
+	
+	
+	# Setter for userForLogging, so this can be set subsequently, e.g. subsequently register a user following a database call
+	public function setUserForLogging ($userForLogging)
+	{
+		$this->userForLogging = $userForLogging;
 	}
 	
 	
@@ -1266,7 +1273,7 @@ class database
 		}
 		
 		# Construct the columns part; if the key is numeric, assume it's not a key=>value pair, but that the value is the fieldname
-		#!# This section needs to quote all fieldnames - hotfix added for 'rank'
+		#!# This section needs to quote all fieldnames - hotfix added for 'rank' and 'when'
 		$what = '*';
 		if ($columns) {
 			$what = array ();
@@ -1274,6 +1281,7 @@ class database
 				foreach ($columns as $key => $value) {
 					if (is_numeric ($key)) {
 						if ($value == 'rank') {$value = "{$this->quote}{$value}{$this->quote}";}	// Hotfix - see above, added for MySQL 8 compatibility
+						if ($value == 'when') {$value = "{$this->quote}{$value}{$this->quote}";}	// Hotfix - see above, added for MySQL 8 compatibility
 						$what[] = $value;
 					} else {
 						$what[] = "{$key} AS {$value}";
@@ -1887,9 +1895,9 @@ if (!$rows) {
 		
 		# Archive the data, by creating the table and copying the data in
 		$sql = "CREATE TABLE {$archiveTable} LIKE {$table};";
-		$this->databaseConnection->execute ($sql);
+		$this->execute ($sql);
 		$sql = "INSERT INTO {$archiveTable} SELECT * FROM {$table};";
-		$this->databaseConnection->execute ($sql);
+		$this->execute ($sql);
 	}
 	
 	

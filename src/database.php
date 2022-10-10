@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-22
- * Version 4.0.1
+ * Version 4.0.2
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -837,7 +837,7 @@ class database
 				}
 				$fields = $fieldsGrouped;
 		}
-
+		
 		# If returning as a total, convert to a count
 		if ($asTotal) {
 			$fields = count ($fields);
@@ -1815,17 +1815,19 @@ if (!$rows) {
 				$specification  = strtoupper ($field['Type']);
 				if (strlen ($field['Collation'])) {$specification .= ' collate ' . $field['Collation'];}
 				if (strtoupper ($field['Null']) == 'NO') {$specification .= ' NOT NULL';}
+				if (strlen ($field['Comment'])) {$specification .= ' COMMENT "' . str_replace ('"', '\"', $field['Comment']) . '"';}
+				if (isSet ($field['Extra']) && strtoupper ($field['Extra']) == 'AUTO_INCREMENT') {$specification .= ' AUTO_INCREMENT';}
 				if (strtoupper ($field['Key']) == 'PRI') {$specification .= ' PRIMARY KEY';}
 				if (strlen ($field['Default'])) {$specification .= ' DEFAULT ' . $field['Default'];}
 				$field = $specification;
 			}
 			
 			# Add the field
-			$fieldsSql[] = "{$fieldname} {$field}";
+			$fieldsSql[] = "{$this->quote}{$fieldname}{$this->quote} {$field}";
 		}
 		
 		# Compile the overall SQL; type is deliberately set to InnoDB so that rows are physically stored in the unique key order
-		$query = 'CREATE TABLE' . ($ifNotExists ? ' IF NOT EXISTS' : '') . " {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote} (" . implode (', ', $fieldsSql) . ") ENGINE={$type} CHARACTER SET utf8 COLLATE utf8_unicode_ci;";
+		$query = 'CREATE TABLE' . ($ifNotExists ? ' IF NOT EXISTS' : '') . " {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote} (" . implode (', ', $fieldsSql) . ") ENGINE={$type};";
 		
 		# Create the table
 		if ($this->_execute ($query) === false) {return false;}

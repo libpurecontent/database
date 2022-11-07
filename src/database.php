@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-22
- * Version 4.0.2
+ * Version 4.0.3
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -936,6 +936,9 @@ class database
 	# Function to detect values that should not be quoted
 	private function valueIsFunctionCall ($string)
 	{
+		# False if null
+		if (is_null ($string)) {return false;}
+		
 		# Normalise the string
 		$string = strtoupper ($string);
 		$string = str_replace (' (', '(', $string);
@@ -1378,6 +1381,7 @@ class database
 				unset ($data[$key]);
 				continue;
 			}
+			#!# If the field has a space in, this will cause a failure
 			$preparedValuePlaceholders[] = ':' . $key;
 		}
 		$preparedValuePlaceholders = implode (', ', $preparedValuePlaceholders);
@@ -1588,6 +1592,7 @@ if (!$rows) {
 				continue;
 			}
 			$placeholder = "data_" . $key;	// The prefix ensures namespaced uniqueness within $dataUniqued
+			#!# If the field has a space in, this will cause a failure
 			$preparedValueUpdates[] = "{$this->quote}{$key}{$this->quote}= :" . $placeholder;
 			
 			# Save the data using the new placeholder
@@ -1606,6 +1611,7 @@ if (!$rows) {
 			$where = array ();
 			foreach ($conditions as $key => $value) {
 				$placeholder = 'conditions_' . $key;	// The prefix ensures namespaced uniqueness within $dataUniqued
+				#!# If the field has a space in, this will cause a failure
 				$where[] = ($this->strictWhere ? 'BINARY ' : '') . $this->quote . $key . "{$this->quote} = :" . $placeholder;
 				
 				# Save the data using the new placeholder
@@ -2303,14 +2309,14 @@ if (!$rows) {
 				$key = ':' . $key;
 			}
 			switch (true) {
-				case ctype_digit ($value):
-					$values[$key] = $value;
-					break;
 				case is_null ($value):
 					$values[$key] = 'NULL';
 					break;
 				case $value == 'NOW()':
 					$values[$key] = 'NOW()';
+					break;
+				case ctype_digit ($value):
+					$values[$key] = $value;
 					break;
 				default:
 					$values[$key] = $this->quote ($value);

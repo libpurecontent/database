@@ -2,7 +2,7 @@
 
 /*
  * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-23
- * Version 4.1.0
+ * Version 4.1.1
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -1103,6 +1103,7 @@ class database
 		# Rearrange
 		$tables = array ();
 		foreach ($data as $index => $attributes) {
+			#!# On MacOS, $database name may be present as lowercase
 			$tables[] = $attributes["Tables_in_{$database}"];
 		}
 		
@@ -2214,7 +2215,7 @@ if (!$rows) {
 	public function logChange ($result, $insertId = false)
 	{
 		# End if logging disabled
-#		if (!$this->logFile) {return false;}
+		if (!$this->logFile) {return false;}
 		
 		# Get the query
 		$query = $this->getQuery ();
@@ -2316,6 +2317,9 @@ if (!$rows) {
 				case $value == 'NOW()':
 					$values[$key] = 'NOW()';
 					break;
+				case is_int ($value):
+				case is_float ($value):
+				#!# Argument of type bool will be interpreted as string in the future
 				case ctype_digit ($value):
 					$values[$key] = $value;
 					break;

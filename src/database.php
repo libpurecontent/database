@@ -1,8 +1,8 @@
 <?php
 
 /*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-22
- * Version 4.0.3
+ * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-23
+ * Version 4.1.0
  * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
  * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
  * Requires PHP 4.1+ with register_globals set to 'off'
@@ -50,6 +50,7 @@ class database
 		}
 		
 		# Enable native types if required; currently implemented and tested only for MySQL; note that this requires the pdo-mysqlnd driver to be installed
+		$driverOptions[PDO::ATTR_STRINGIFY_FETCHES] = true;	// NB This is the default behaviour anyway until PHP 8.1; see: https://www.php.net/manual/en/migration81.incompatible.php#migration81.incompatible.pdo.mysql
 		if ($nativeTypes) {
 			if (in_array ($vendor, array ('mysql', 'pgsql'))) {
 				$driverOptions[PDO::ATTR_EMULATE_PREPARES] = false;		// #!# This seems to cause problems with e.g. "SHOW DATABASES LIKE"; see point 3 at: http://stackoverflow.com/a/10455228/180733 and http://stackoverflow.com/a/12202218/180733

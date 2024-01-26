@@ -1,16 +1,7 @@
 <?php
 
-/*
- * Coding copyright Martin Lucas-Smith, University of Cambridge, 2003-23
- * Version 4.1.2
- * Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
- * Distributed under the terms of the GNU Public Licence - https://www.gnu.org/copyleft/gpl.html
- * Requires PHP 4.1+ with register_globals set to 'off'
- * Download latest from: https://download.geog.cam.ac.uk/projects/database/
- */
-
-
 # Class containing basic generalised database manipulation functions for PDO
+# Uses prepared statements (see https://stackoverflow.com/questions/60174/how-can-i-prevent-sql-injection-in-php ) where possible
 class database
 {
 	# General class properties
@@ -621,9 +612,6 @@ class database
 			unlink ($file);
 		}
 		
-		# Add CSV processing support
-		require_once ('csv.php');
-		
 		# Add an initial notice header line, e.g. for a copyright notice, if required; this is treated as a single cell with an extra row after
 		if ($initialNotice) {
 			file_put_contents ($file, csv::safeDataCell ($initialNotice) . "\n\n", FILE_APPEND);
@@ -662,7 +650,6 @@ class database
 		if ($zipped) {
 			$supportedFormats = array ('zip', 'gz');
 			$format = (is_string ($zipped) && in_array ($zipped, $supportedFormats) ? $zipped : $supportedFormats[0]);	// Default to first, zip
-			require_once ('application.php');
 			application::createZip ($file, $filename, $saveToDirectory, $format);
 			return;
 		}
@@ -725,7 +712,6 @@ class database
 		}
 		
 		# Get the requested page and calculate the pagination
-		require_once ('pagination.php');
 		if (is_int ($page)) {$page = (string) $page;}	// If page is actually an int, ctype_digit would not properly detect it as numeric
 		$requestedPage = (ctype_digit ($page) ? $page : 1);
 		list ($totalPages, $offset, $items, $limitPerPage, $page) = pagination::getPagerData ($totalAvailable, $paginationRecordsPerPage, $requestedPage);
@@ -1480,7 +1466,6 @@ class database
 		if (!is_array ($dataSet) || !$dataSet) {return false;}
 		
 		# Determine the number of fields in the data by checking against the first item in the dataset
-		require_once ('application.php');
 		if (!$fields = application::arrayFieldsConsistent ($dataSet, $failedAt)) {
 			echo 'ERROR: Inconsistent array fields in ' . strtolower ($statement) . 'Many, failing at:';
 			application::dumpData ($failedAt);
@@ -1668,7 +1653,6 @@ if (!$rows) {
 		if (!is_array ($dataSet) || !$dataSet) {return false;}
 		
 		# Determine the number of fields in the data by checking against the first item in the dataset
-		require_once ('application.php');
 		if (!$fields = application::arrayFieldsConsistent ($dataSet)) {return false;}
 		
 		# Get the key field if not explicitly supplied
@@ -1992,9 +1976,6 @@ if (!$rows) {
 		$targetTableMoniker = NULL;
 		if ($matches = self::convertJoin ($fieldname, $simpleJoin)) {
 			
-			# Load required libraries
-			require_once ('application.php');
-			
 			# Assign the new fieldname
 			$fieldname = $matches['field'];
 			$targetDatabase = $matches['database'];
@@ -2074,7 +2055,6 @@ if (!$rows) {
 						$values[$groupKey][$key]  = ($showKey ? "{$key}: " : '');
 						$useFields = $rowData;
 						if ($showFields) {
-							require_once ('application.php');
 							$useFields = application::arrayFields ($rowData, $showFields);	// Filters down to the $showFields fields only
 						}
 						$set = array_values ($useFields);
@@ -2089,7 +2069,6 @@ if (!$rows) {
 					$values[$key]  = ($showKey ? "{$key}: " : '');
 					$useFields = $rowData;
 					if ($showFields) {
-						require_once ('application.php');
 						$useFields = application::arrayFields ($rowData, $showFields);	// Filters down to the $showFields fields only
 					}
 					$set = array_values ($useFields);
@@ -2286,7 +2265,6 @@ if (!$rows) {
 			}
 			
 			# Add the URL
-			require_once ('application.php');
 			$errorMessage .= "\n\n\n---\nGenerated at URL: {$_SERVER['_PAGE_URL']}";
 			
 			# Mail the admin

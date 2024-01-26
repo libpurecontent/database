@@ -9,7 +9,11 @@
             "name": "mvl22"
         }
     ],
-    "require": {},
+    "require": {
+        "libpurecontent/csv": "^1.5",
+        "libpurecontent/pagination": "^1.1",
+        "libpurecontent/application": "^1.9"
+    },
     "autoload": {
         "psr-0": {"database": "src/"}
     }

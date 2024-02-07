@@ -6,13 +6,19 @@ class database
 {
 	# General class properties
 	public $connection = NULL;
+	private $hostname;
+	private $vendor;
 	private $preparedStatement = NULL;
 	private $query = NULL;
+	private $quote;
 	private $queryValues = NULL;
 	private $strictWhere = false;
+	private $nativeTypesDecimalHandling;
 	private $fieldsCache = array ();
 	
 	# Error logger properties
+	private $logFile;
+	private $userForLogging;
 	private $errorLoggerCallback = NULL;
 	private $errorLoggerCustomCode = NULL;
 	private $errorLoggerCustomCodeText = NULL;

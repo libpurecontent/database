@@ -435,7 +435,9 @@ class database
 			}
 			
 			# Trim the value
-			$value = trim ($value);
+			if (!is_null ($value)) {	// Avoid null coalescing warning
+				$value = trim ($value);
+			}
 			
 			# Add to output data
 			$pairs[$key] = $value;

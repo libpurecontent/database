@@ -1099,7 +1099,7 @@ class database
 	
 	# Function to obtain a list of tables in a database
 	# $matchingRegexp enables filtering, e.g. '/tablename([0-9]+)/' ; if there is a capture (...) within this, then that will be used for the keys
-	public function getTables ($database, $matchingRegexp = false, $excludeTables = array (), $withLabels = false)
+	public function getTables ($database /* case-sensitive */, $matchingRegexp = false, $excludeTables = array (), $withLabels = false)
 	{
 		# Get the data
 		$query = "SHOW TABLES FROM {$this->quote}{$database}{$this->quote};";
@@ -1108,7 +1108,7 @@ class database
 		# Rearrange
 		$tables = array ();
 		foreach ($data as $index => $attributes) {
-			#!# On MacOS, $database name may be present as lowercase
+			# Note that client code should always use the stored name case-sensitivity to avoid offsets here; see: https://dev.mysql.com/doc/refman/8.0/en/identifier-case-sensitivity.html and https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_lower_case_table_names
 			$tables[] = $attributes["Tables_in_{$database}"];
 		}
 		

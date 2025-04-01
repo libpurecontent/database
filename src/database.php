@@ -1108,7 +1108,7 @@ class database
 		# Rearrange
 		$tables = array ();
 		foreach ($data as $index => $attributes) {
-			# Note that client code should always use the stored name case-sensitivity to avoid offsets here; see: https://dev.mysql.com/doc/refman/8.0/en/identifier-case-sensitivity.html and https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_lower_case_table_names
+			# Note that client code should always use the stored name case-sensitively to avoid offsets here; see: https://dev.mysql.com/doc/refman/8.0/en/identifier-case-sensitivity.html and https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_lower_case_table_names
 			$tables[] = $attributes["Tables_in_{$database}"];
 		}
 		

@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "libpurecontent/csv": "^1.5",
+        "libpurecontent/csv": "^1.6",
         "libpurecontent/pagination": "^1.1",
         "libpurecontent/application": "^1.9"
     },

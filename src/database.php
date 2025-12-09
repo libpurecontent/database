@@ -2275,9 +2275,17 @@ if (!$rows) {
 			# Add the URL
 			$errorMessage .= "\n\n\n---\nGenerated at URL: {$_SERVER['_PAGE_URL']}";
 			
+			# Wordwrap the message
+			$errorMessage = wordwrap ($errorMessage);
+			
+			# Append in Apache status, if using Apache
+			if (function_exists ('apache_get_version')) {
+				$errorMessage .= "\n\n\n---\nApache status:\n\n" . shell_exec ('apachectl fullstatus');
+			}
+			
 			# Mail the admin
 			$mailheaders = "From: {$applicationName} <" . $administratorEmail . ">\n";
-			application::utf8Mail ($administratorEmail, 'Data access error: ' . $applicationName, wordwrap ($errorMessage), $mailheaders);
+			application::utf8Mail ($administratorEmail, 'Data access error: ' . $applicationName, $errorMessage, $mailheaders);
 		}
 		
 		# Return the HTML

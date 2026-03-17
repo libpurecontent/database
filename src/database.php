@@ -32,7 +32,7 @@ class database
 		$this->logFile = $logFile;
 		$this->userForLogging = $userForLogging;
 		
-		# Make attributes available for querying by calling applications
+		# Set properties
 		$this->hostname = $hostname;
 		$this->vendor = $vendor;
 		
@@ -86,6 +86,13 @@ class database
 	{
 		# Close the connection
 		$this->connection = NULL;
+	}
+	
+	
+	# Getter for vendor
+	public function getVendor ()
+	{
+		return $this->vendor;
 	}
 	
 	

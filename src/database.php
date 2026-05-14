@@ -352,13 +352,13 @@ class database
 	
 	
 	# Gets results from the query, returning false if there are none (never an empty array)
-	public function expectData ($query)
+	public function expectData ($query, $associative = false, $keyed = true, $preparedStatementValues = array ())
 	{
 		# Register this as the public entry point
 		$this->errorLoggerEntryFunction = __FUNCTION__;
 		
 		# Get the data or end; expectMode will have caused a logError to have been thrown
-		if (!$result = $this->_getData ($query, false, true, array (), array (), $expectMode = true)) {
+		if (!$result = $this->_getData ($query, $associative, $keyed, $preparedStatementValues, array (), $expectMode = true)) {
 			return false;
 		}
 		
@@ -371,13 +371,13 @@ class database
 	
 	
 	# A single row of data from the query is expected and returned; otherwise false is returned (never NULL)
-	public function expectOne ($query)
+	public function expectOne ($query, $associative = false, $keyed = true, $preparedStatementValues = array ())
 	{
 		# Register this as the public entry point
 		$this->errorLoggerEntryFunction = __FUNCTION__;
 		
 		# Get the data or end; expectMode will have caused a logError to have been thrown
-		if (!$result = $this->_getOne ($query, false, true, array (), $expectMode = true)) {
+		if (!$result = $this->_getOne ($query, $associative, $keyed, $preparedStatementValues, $expectMode = true)) {
 			return false;
 		}
    		

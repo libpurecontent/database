@@ -14,6 +14,7 @@ class database
 	private $queryValues = NULL;
 	private $strictWhere = false;
 	private $nativeTypesDecimalHandling;
+	private $schema = 'public';		// For PostgreSQL; not yet configurable
 	private $fieldsCache = array ();
 	
 	# Error logger properties
@@ -1056,7 +1057,11 @@ class database
 	public function getDatabases ($omitReserved = array ('cluster', 'information_schema', 'mysql'))
 	{
 		# Get the data
-		$query = "SHOW DATABASES;";
+		$queryByVendor = array (
+			'mysql'	=> "SHOW DATABASES;",
+			'pgsql'	=> 'SELECT datname AS "Database" FROM pg_database WHERE datistemplate = false;',
+		);
+		$query = (isSet ($queryByVendor[$this->vendor]) ? $queryByVendor[$this->vendor] : $queryByVendor['mysql']);	// Default to MySQL format
 		$data = $this->_getData ($query);
 		
 		# Sort the list
@@ -1109,7 +1114,11 @@ class database
 	public function getTables ($database /* case-sensitive */, $matchingRegexp = false, $excludeTables = array (), $withLabels = false)
 	{
 		# Get the data
-		$query = "SHOW TABLES FROM {$this->quote}{$database}{$this->quote};";
+		$queryByVendor = array (
+			'mysql'	=> "SHOW TABLES FROM {$this->quote}{$database}{$this->quote};",
+			'pgsql' => "SELECT table_name AS \"Tables_in_{$database}\" FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema = '{$this->schema}'",
+		);
+		$query = (isSet ($queryByVendor[$this->vendor]) ? $queryByVendor[$this->vendor] : $queryByVendor['mysql']);	// Default to MySQL format
 		$data = $this->_getData ($query);
 		
 		# Rearrange

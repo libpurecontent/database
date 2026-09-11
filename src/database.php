@@ -909,6 +909,18 @@ class database
 	# Function to emulate a PostgreSQL table structure in MySQL format
 	private function pgsqlTableStructureEmulation ($data, $table)
 	{
+		# Firstly, determine the primary key column in the table (if any); see: https://wiki.postgresql.org/wiki/Retrieve_primary_key_columns
+		$query = "
+			SELECT a.attname
+			FROM pg_index AS i
+			JOIN pg_attribute AS a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+			WHERE
+				    i.indrelid = '{$table}'::regclass
+				AND i.indisprimary
+		;";
+		$indexData = $this->_getData ($query);
+		$primaryKey = ($indexData ? $indexData[0]['attname'] : false);
+		
 		# Map the structure, replacing with the PostgreSQL values
 		# See: https://www.postgresql.org/docs/14/infoschema-columns.html
 		foreach ($data as $index => $field) {
@@ -939,7 +951,7 @@ class database
 				'Type'			=> $type,
 				'Collation'		=> 'en_GB.UTF-8',	// #!# Needs to be retrieved using: `SELECT datcollate FROM pg_database WHERE datname = :database;`
 				'Null'			=> $field['is_nullable'],
-				'Key'			=> '?',			// #!# Need to implement this using: https://wiki.postgresql.org/wiki/Retrieve_primary_key_columns
+				'Key'			=> ($field['column_name'] == $primaryKey ? 'PRI' : ''),
 				'Default'		=> $field['column_default'],
 				'Extra'			=> (in_array ($field['data_type'], array ('SERIAL', 'BIGSERIAL')) ? 'auto_increment' : NULL),
 				'Privileges'	=> NULL,		// No support for this in PostgreSQL

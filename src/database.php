@@ -752,10 +752,15 @@ class database
 		# Check that the table exists
 		$tables = $this->getTables ($database);
 		if (!in_array ($table, $tables)) {return false;}
-		
+
+		# Postgres does not support cross-database queries but requires a schema instead
+		#!# For now assume the current database and a schema 'public'
+		$dataPool = $database;
+		if ($this->vendor == 'pgsql') {$dataPool = 'public';}
+
 		# Get the total
 		#!# 'WHERE' should be within this here, not part of the supplied parameter
-		$query = "SELECT COUNT(*) AS total FROM {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote} {$restrictionSql};";
+		$query = "SELECT COUNT(*) AS total FROM {$this->quote}{$dataPool}{$this->quote}.{$this->quote}{$table}{$this->quote} {$restrictionSql};";
 		$data = $this->_getOne ($query);
 		
 		# Return the value

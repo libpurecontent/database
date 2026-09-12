@@ -945,6 +945,9 @@ class database
 					$type = $field['data_type'];
 			}
 			
+			# PostgreSQL token for default
+			$defaultToken = "nextval(('{$table}_id_seq'::text)::regclass)";
+			
 			# Register the structure
 			$data[$index] = array (
 				'Field'			=> $field['column_name'],
@@ -952,8 +955,8 @@ class database
 				'Collation'		=> 'en_GB.UTF-8',	// #!# Needs to be retrieved using: `SELECT datcollate FROM pg_database WHERE datname = :database;`
 				'Null'			=> $field['is_nullable'],
 				'Key'			=> ($field['column_name'] == $primaryKey ? 'PRI' : ''),
-				'Default'		=> $field['column_default'],
-				'Extra'			=> (in_array ($field['data_type'], array ('SERIAL', 'BIGSERIAL')) ? 'auto_increment' : NULL),
+				'Default'		=> ($field['column_default'] == $defaultToken ? NULL : $field['column_default']),
+				'Extra'			=> ((in_array ($field['data_type'], array ('SERIAL', 'BIGSERIAL')) || $field['column_default'] == $defaultToken) ? 'auto_increment' : NULL),
 				'Privileges'	=> NULL,		// No support for this in PostgreSQL
 				'Comment'		=> '',			// #!# Support to be determined
 			);

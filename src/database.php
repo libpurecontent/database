@@ -921,6 +921,22 @@ class database
 		$indexData = $this->_getData ($query, false, true, array ('table' => $table));
 		$primaryKey = ($indexData ? $indexData[0]['attname'] : false);
 		
+		# Get data for column comments
+		$query = "
+			SELECT
+				c.column_name,
+				pgd.description AS column_comment
+			FROM pg_catalog.pg_statio_all_tables AS st
+			INNER JOIN pg_catalog.pg_description pgd
+				ON pgd.objoid = st.relid
+			INNER JOIN information_schema.columns c
+				ON pgd.objsubid = c.ordinal_position
+				AND c.table_schema = st.schemaname
+				AND c.table_name = st.relname
+			WHERE c.table_name = :table
+		;";
+		$commentsData = $this->getPairs ($query, false, array ('table' => $table));
+		
 		# Map the structure, replacing with the PostgreSQL values
 		# See: https://www.postgresql.org/docs/14/infoschema-columns.html
 		foreach ($data as $index => $field) {
@@ -958,10 +974,10 @@ class database
 				'Default'		=> ($field['column_default'] == $defaultToken ? NULL : $field['column_default']),
 				'Extra'			=> ((in_array ($field['data_type'], array ('SERIAL', 'BIGSERIAL')) || $field['column_default'] == $defaultToken) ? 'auto_increment' : NULL),
 				'Privileges'	=> NULL,		// No support for this in PostgreSQL
-				'Comment'		=> '',			// #!# Support to be determined
+				'Comment'		=> (isSet ($commentsData[$field['column_name']]) ? $commentsData[$field['column_name']] : ''),
 			);
 		}
-		
+
 		# Return the data
 		return $data;
 	}

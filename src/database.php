@@ -948,6 +948,12 @@ class database
 				case 'BIGSERIAL':
 					$type = 'int';
 					break;
+				case 'character':
+					$type = 'char';
+					if ($field['character_maximum_length']) {
+						$type .= '(' . $field['character_maximum_length'] . ')';
+					}
+					break;
 				case 'character varying':
 					$type = 'varchar';
 					if ($field['character_maximum_length']) {

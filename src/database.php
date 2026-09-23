@@ -1993,6 +1993,34 @@ if (!$rows) {
 	}
 	
 	
+	# Function to get the table comment (description) for each table in a database
+	public function getTableComments ($database)
+	{
+		# Get the data
+		$queryByVendor = array (
+			'mysql'	=> "SHOW TABLE STATUS FROM {$this->quote}{$database}{$this->quote};",
+			'pgsql'	=> "
+				SELECT table_name AS \"Name\", obj_description((table_schema || '.' || table_name)::regclass) AS \"Comment\"
+				FROM information_schema.tables
+				WHERE table_type = 'BASE TABLE'
+				AND table_schema NOT IN ('pg_catalog', 'information_schema')
+				AND table_catalog = '{$database}';
+			;",
+		);
+		$query = (isSet ($queryByVendor[$this->vendor]) ? $queryByVendor[$this->vendor] : $queryByVendor['mysql']);	// Default to MySQL format
+		$data = $this->getData ($query);
+		
+		# Arrange as an associative array
+		$comments = array ();
+		foreach ($data as $table) {
+			$comments[$table['Name']] = $table['Comment'];
+		}
+		
+		# Return the comments
+		return $comments;
+	}
+	
+	
 	# Function to get the table comment
 	public function getTableComment ($database, $table)
 	{

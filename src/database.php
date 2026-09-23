@@ -915,10 +915,10 @@ class database
 			FROM pg_index AS i
 			JOIN pg_attribute AS a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
 			WHERE
-				    i.indrelid = '{$table}'::regclass
+				    i.indrelid = :table::regclass
 				AND i.indisprimary
 		;";
-		$indexData = $this->_getData ($query);
+		$indexData = $this->_getData ($query, false, true, array ('table' => $table));
 		$primaryKey = ($indexData ? $indexData[0]['attname'] : false);
 		
 		# Map the structure, replacing with the PostgreSQL values

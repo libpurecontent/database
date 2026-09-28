@@ -1341,18 +1341,15 @@ class database
 		}
 		
 		# Construct the columns part; if the key is numeric, assume it's not a key=>value pair, but that the value is the fieldname
-		#!# This section needs to quote all fieldnames - hotfix added for 'rank' and 'when'
 		$what = '*';
 		if ($columns) {
 			$what = array ();
 			if (is_array ($columns)) {
 				foreach ($columns as $key => $column) {
 					if (is_numeric ($key)) {
-						if ($column == 'rank') {$column = "{$this->quote}{$column}{$this->quote}";}	// Hotfix - see above, added for MySQL 8 compatibility
-						if ($column == 'when') {$column = "{$this->quote}{$column}{$this->quote}";}	// Hotfix - see above, added for MySQL 8 compatibility
-						$what[] = $column;
+						$what[] = "{$this->quote}{$column}{$this->quote}";
 					} else {
-						$what[] = "{$key} AS {$column}";
+						$what[] = "{$key} AS {$this->quote}{$column}{$this->quote}";
 					}
 				}
 			} else {	// Currently assumed to be a string if it's not an array

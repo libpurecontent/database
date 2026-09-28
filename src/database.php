@@ -1346,13 +1346,13 @@ class database
 		if ($columns) {
 			$what = array ();
 			if (is_array ($columns)) {
-				foreach ($columns as $key => $value) {
+				foreach ($columns as $key => $column) {
 					if (is_numeric ($key)) {
-						if ($value == 'rank') {$value = "{$this->quote}{$value}{$this->quote}";}	// Hotfix - see above, added for MySQL 8 compatibility
-						if ($value == 'when') {$value = "{$this->quote}{$value}{$this->quote}";}	// Hotfix - see above, added for MySQL 8 compatibility
-						$what[] = $value;
+						if ($column == 'rank') {$column = "{$this->quote}{$column}{$this->quote}";}	// Hotfix - see above, added for MySQL 8 compatibility
+						if ($column == 'when') {$column = "{$this->quote}{$column}{$this->quote}";}	// Hotfix - see above, added for MySQL 8 compatibility
+						$what[] = $column;
 					} else {
-						$what[] = "{$key} AS {$value}";
+						$what[] = "{$key} AS {$column}";
 					}
 				}
 			} else {	// Currently assumed to be a string if it's not an array

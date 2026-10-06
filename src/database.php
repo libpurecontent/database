@@ -1341,22 +1341,23 @@ class database
 		}
 		
 		# Construct the columns part; if the key is numeric, assume it's not a key=>value pair, but that the value is the fieldname
-		#!# This section needs to quote all fieldnames - hotfix added for 'rank' and 'when'
+		# Column quoting rules are defined at: https://dev.mysql.com/doc/refman/9.7/en/identifiers.html
 		$what = '*';
 		if ($columns) {
 			$what = array ();
 			if (is_array ($columns)) {
 				foreach ($columns as $key => $column) {
+					if (preg_match ('/^[-_a-zA-Z0-9]+$/', $column)) {		// Do not attempt to quote e.g. FUNCTION(x), "Foo as Bar", quoted names, etc.; client code should quote column names if non-standard
+						$column = "{$this->quote}{$column}{$this->quote}";
+					}
 					if (is_numeric ($key)) {
-						if ($column == 'rank') {$column = "{$this->quote}{$column}{$this->quote}";}	// Hotfix - see above, added for MySQL 8 compatibility
-						if ($column == 'when') {$column = "{$this->quote}{$column}{$this->quote}";}	// Hotfix - see above, added for MySQL 8 compatibility
 						$what[] = $column;
 					} else {
 						$what[] = "{$key} AS {$column}";
 					}
 				}
-			} else {	// Currently assumed to be a string if it's not an array
-				$what[] = $columns;
+			} else {	// Currently assumed to be a string if it's not an array, e.g. 'foo, bar, anothercolumn, 'x' AS zog, a as `b`, z as "myColumn", updatedAt'
+				$what[] = $columns;		// Will not be quoted - client code should quote column names if non-standard
 			}
 			$what = implode (',', $what);
 		}

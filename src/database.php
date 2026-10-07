@@ -1513,6 +1513,7 @@ class database
 		# If boolean true (rather than a string), compile the supplied data to a string first
 		if ($onDuplicateKeyUpdate === true) {
 			foreach ($data as $key => $value) {
+				#!# Use of VALUES() in ON DUPLICATE KEY is now deprecated and should be migrated to a table alias; see: https://dev.mysql.com/doc/refman/9.7/en/insert-on-duplicate.html
 				$clauses[] = "{$this->quote}{$key}{$this->quote}=VALUES({$this->quote}{$key}{$this->quote})";
 			}
 			$onDuplicateKeyUpdate = implode (',', $clauses);

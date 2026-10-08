@@ -2186,19 +2186,16 @@ if (!$rows) {
 			if (preg_match ('/^([a-zA-Z0-9]+)Id$/', $fieldname, $matches)) {
 				list ($currentDatabase, $currentTable, $tables) = $simpleJoin;
 				
+				# Pluralise the token for table, e.g. typeId has type -> types
+				$plural = application::pluralise ($matches[1]);
+				
 				# Determine the target table
 				switch (true) {
-					case ($matches[1] == 'parent'):	// Special-case: if field is 'parentId' then treat as self-join to current table
+					case ($fieldname == 'parentId'):	// Special-case: if field is 'parentId' then treat as self-join to current table
 						$table = $currentTable;
 						break;
-					case (in_array (preg_replace ('/ss$/', 'sses', $matches[1]), $tables)):	// Pluraliser for ~ss => ~sses, e.g. addressId => addresses
-						$table =    preg_replace ('/ss$/', 'sses', $matches[1]);
-						break;
-					case (in_array ($matches[1] . 's', $tables)):	// Simple pluraliser, e.g. for a field 'caseId' look for a table 'cases'; if not present, it will assume 'case'
-						$table = $matches[1] . 's';
-						break;
-					case (in_array (preg_replace ('/y$/', 'ies', $matches[1]), $tables)):	// Pluraliser for ~y => ~ies, e.g. countryId => countries
-						$table =    preg_replace ('/y$/', 'ies', $matches[1]);
+					case (in_array ($plural, $tables)):
+						$table = $plural;
 						break;
 					default:
 						$table = $matches[1];

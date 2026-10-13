@@ -2190,7 +2190,7 @@ if (!$rows) {
 	public function convertJoin ($fieldname, $joinFormat = false /* false/array as defined above */)
 	{
 		# Foreign keys mode
-		if (count ($joinFormat) == 4) {
+		if (is_array ($joinFormat) && count ($joinFormat) == 4) {
 			list ($currentDatabase, $currentTable, $ignored, $enableForeignKeys) = $joinFormat;
 			if ($foreignKey = $this->getForeignKey ($currentDatabase, $currentTable, $fieldname)) {
 				return $foreignKey;		// Array of field, database, table
@@ -2198,7 +2198,7 @@ if (!$rows) {
 		}
 		
 		# Simple join mode, e.g. targetId joins to database=$simpleJoin[0],table=target, and the field is fixed as 'id'
-		if (count ($joinFormat) == 3) {
+		if (is_array ($joinFormat) && count ($joinFormat) == 3) {
 			if (preg_match ('/^([a-zA-Z0-9]+)Id$/', $fieldname, $matches)) {
 				list ($currentDatabase, $currentTable, $tables) = $joinFormat;
 				

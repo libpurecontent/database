@@ -2063,14 +2063,14 @@ if (!$rows) {
 	
 	# Define a lookup function used to join fields in the format targettableId fieldname__JOIN__targetDatabase__targetTable__reserved
 	#!# Caching mechanism needed for repeated fields (and fieldnames as below), one level higher in the calling structure
-	public static function lookup ($databaseConnection, $fieldname, $fieldType, $simpleJoin = false, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array (), $tableMonikerTranslations = array ())
+	public function lookup ($databaseConnection, $fieldname, $fieldType, $simpleJoin = false, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array (), $tableMonikerTranslations = array ())
 	{
 		# Determine if it's a special JOIN field
 		$values = array ();
 		$targetDatabase = NULL;
 		$targetTable = NULL;
 		$targetTableMoniker = NULL;
-		if ($matches = self::convertJoin ($fieldname, $simpleJoin)) {
+		if ($matches = $this->convertJoin ($fieldname, $simpleJoin)) {
 			
 			# Assign the new fieldname
 			$fieldname = $matches['field'];
@@ -2179,7 +2179,7 @@ if (!$rows) {
 	
 	
 	# Function to convert joins
-	public static function convertJoin ($fieldname, $simpleJoin = false /* or array(currentDatabase,currentTable,array(tables)) */)
+	public function convertJoin ($fieldname, $simpleJoin = false /* or array(currentDatabase,currentTable,array(tables)) */)
 	{
 		# Simple join mode, e.g. targetId joins to database=$simpleJoin[0],table=target, and the field is fixed as 'id'
 		if ($simpleJoin) {
@@ -2221,7 +2221,7 @@ if (!$rows) {
 			}
 		}
 		
-		# Otherwise return false;
+		# Otherwise return false
 		return false;
 	}
 	
@@ -2245,7 +2245,7 @@ if (!$rows) {
 		# Determine which fields are lookups
 		$lookupFields = array ();
 		foreach ($fields as $field) {
-			if ($matches = self::convertJoin ($field, $simpleJoin)) {
+			if ($matches = $this->convertJoin ($field, $simpleJoin)) {
 				$lookupFields[$field] = $matches['table'];
 			}
 		}

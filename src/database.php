@@ -2063,14 +2063,18 @@ if (!$rows) {
 	
 	# Define a lookup function used to join fields in the format targettableId fieldname__JOIN__targetDatabase__targetTable__reserved
 	#!# Caching mechanism needed for repeated fields (and fieldnames as below), one level higher in the calling structure
-	public function lookup ($databaseConnection, $fieldname, $fieldType, $simpleJoin = false, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array (), $tableMonikerTranslations = array ())
+	# Join format is either:
+	# - false, to disable and use deprecated fieldname__JOIN__table__database__reserved long field name format
+	# - simpleJoin mode (e.g. widgetId -> widgets.id): array ($currentDatabase, $currentTable, array(allTables)); or
+	# - foreign keys mode: array ($database, $table, array (), $enableForeignKeys = true)
+	public function lookup ($databaseConnection, $fieldname, $fieldType, $joinFormat = false, $showKeys = NULL, $orderby = false, $sort = true, $group = false, $firstOnly = false, $showFields = array (), $tableMonikerTranslations = array ())
 	{
 		# Determine if it's a special JOIN field
 		$values = array ();
 		$targetDatabase = NULL;
 		$targetTable = NULL;
 		$targetTableMoniker = NULL;
-		if ($matches = $this->convertJoin ($fieldname, $simpleJoin)) {
+		if ($matches = $this->convertJoin ($fieldname, $joinFormat)) {
 			
 			# Assign the new fieldname
 			$fieldname = $matches['field'];
@@ -2179,12 +2183,24 @@ if (!$rows) {
 	
 	
 	# Function to convert joins
-	public function convertJoin ($fieldname, $simpleJoin = false /* or array(currentDatabase,currentTable,array(tables)) */)
+	# Join format is either:
+	# - false, to disable and use deprecated fieldname__JOIN__table__database__reserved long field name format
+	# - simpleJoin mode (e.g. widgetId -> widgets.id): array ($currentDatabase, $currentTable, array(allTables)); or
+	# - foreign keys mode: array ($database, $table, array (), $enableForeignKeys = true)
+	public function convertJoin ($fieldname, $joinFormat = false /* false/array as defined above */)
 	{
+		# Foreign keys mode
+		if (count ($joinFormat) == 4) {
+			list ($currentDatabase, $currentTable, $ignored, $enableForeignKeys) = $joinFormat;
+			if ($foreignKey = $this->getForeignKey ($currentDatabase, $currentTable, $fieldname)) {
+				return $foreignKey;		// Array of field, database, table
+			}
+		}
+		
 		# Simple join mode, e.g. targetId joins to database=$simpleJoin[0],table=target, and the field is fixed as 'id'
-		if ($simpleJoin) {
+		if (count ($joinFormat) == 3) {
 			if (preg_match ('/^([a-zA-Z0-9]+)Id$/', $fieldname, $matches)) {
-				list ($currentDatabase, $currentTable, $tables) = $simpleJoin;
+				list ($currentDatabase, $currentTable, $tables) = $joinFormat;
 				
 				# Pluralise the token for table, e.g. typeId has type -> types
 				$plural = application::pluralise ($matches[1]);
@@ -2209,9 +2225,10 @@ if (!$rows) {
 					'table' => $table,
 				);
 			}
+		}
 			
-		# Otherwise use the fieldname__JOIN__table__database__reserved format
-		} else {
+		# Otherwise use the legacy fieldname__JOIN__table__database__reserved format
+		if ($joinFormat === false) {
 			if (preg_match ('/^([a-zA-Z0-9]+)__JOIN__([a-zA-Z0-9]+)__([-_a-zA-Z0-9]+)__reserved$/', $fieldname, $matches)) {
 				return array (
 					'field' => $matches[1],
@@ -2223,6 +2240,38 @@ if (!$rows) {
 		
 		# Otherwise return false
 		return false;
+	}
+	
+	
+	# Function to obtain foreign key definition
+	private function getForeignKey ($database, $table, $field)
+	{
+		# Obtain the data; see: https://stackoverflow.com/questions/201621/
+		$query = "
+			SELECT
+				-- DISTINCT kcu.TABLE_NAME,						/* Start table */
+				-- kcu.TABLE_SCHEMA,							/* Start database */
+				-- kcu.COLUMN_NAME,								/* Start field */
+				kcu.REFERENCED_TABLE_SCHEMA AS `database`,		/* Destination database */
+				kcu.REFERENCED_TABLE_NAME AS `table`,			/* Destination table */
+				kcu.REFERENCED_COLUMN_NAME AS `field`			/* Destination field */
+				-- ,
+				-- UPDATE_RULE,
+				-- DELETE_RULE
+			FROM information_schema.KEY_COLUMN_USAGE AS kcu
+			INNER JOIN information_schema.referential_constraints AS rc ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+			WHERE
+				    TABLE_SCHEMA = :database
+				AND kcu.TABLE_NAME = :table
+				AND kcu.COLUMN_NAME = :field
+				AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
+			ORDER BY kcu.TABLE_NAME, kcu.COLUMN_NAME
+		;";
+		$preparedStatementValues = array ('database' => $database, 'table' => $table, 'field' => $field);
+		$data = $this->getOne ($query, false, true, $preparedStatementValues);
+		
+		# Return the data
+		return $data;
 	}
 	
 	

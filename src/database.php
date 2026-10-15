@@ -2247,26 +2247,95 @@ if (!$rows) {
 	private function getForeignKey ($database, $table, $field)
 	{
 		# Obtain the data; see: https://stackoverflow.com/questions/201621/
-		$query = "
-			SELECT
-				-- DISTINCT kcu.TABLE_NAME,						/* Start table */
-				-- kcu.TABLE_SCHEMA,							/* Start database */
-				-- kcu.COLUMN_NAME,								/* Start field */
-				kcu.REFERENCED_TABLE_SCHEMA AS `database`,		/* Destination database */
-				kcu.REFERENCED_TABLE_NAME AS `table`,			/* Destination table */
-				kcu.REFERENCED_COLUMN_NAME AS `field`			/* Destination field */
-				-- ,
-				-- UPDATE_RULE,
-				-- DELETE_RULE
-			FROM information_schema.KEY_COLUMN_USAGE AS kcu
-			INNER JOIN information_schema.referential_constraints AS rc ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
-			WHERE
-				    TABLE_SCHEMA = :database
-				AND kcu.TABLE_NAME = :table
-				AND kcu.COLUMN_NAME = :field
-				AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
-			ORDER BY kcu.TABLE_NAME, kcu.COLUMN_NAME
-		;";
+		switch ($this->vendor) {
+			case 'pgsql':
+				$database = $this->schema;
+				/* This standard SQL approach can't be used, because most users won't have a privilege on information_schema.constraint_column_usage, which can't be added:
+				$query_requiresprivileges = "
+					SELECT
+						-- tc.table_schema,
+						-- tc.table_name,
+						-- kcu.column_name,
+						kcu.table_schema AS {$this->quote}database{$this->quote},	-- Destination database
+						kcu.table_name AS {$this->quote}table{$this->quote},		-- Destination table
+						kcu.column_name AS {$this->quote}field{$this->quote}		-- Destination field
+					FROM information_schema.table_constraints AS tc
+					JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+					JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
+					WHERE
+						    tc.constraint_type = 'FOREIGN KEY'
+						AND ccu.table_schema = :database
+						AND ccu.table_name = :table
+						AND ccu.column_name = :field
+				;";
+				*/
+				# See: https://dba.stackexchange.com/questions/36979/ from which this has been adapted, using a CTE to facilitate filtering
+				$query = "
+					WITH foreignkeys AS
+					(
+						SELECT
+							-- c.conname AS constraint_name,
+							-- c.contype AS constraint_type,
+							sch.nspname AS self_schema,
+							tbl.relname AS self_table,
+							(ARRAY_AGG(col.attname ORDER BY u.attposition))[1] AS self_column,
+							f_sch.nspname AS destination_schema,
+							f_tbl.relname AS destination_table,
+							(ARRAY_AGG(f_col.attname ORDER BY f_u.attposition))[1] AS destination_field
+							-- ,CASE confupdtype WHEN 'r' THEN 'restrict' WHEN 'c' THEN 'cascade' WHEN 'n' THEN 'set null' WHEN 'd' THEN 'set default' WHEN 'a' THEN 'no action' END AS on_update,
+							-- CASE confdeltype WHEN 'r' THEN 'restrict' WHEN 'c' THEN 'cascade' WHEN 'n' THEN 'set null' WHEN 'd' THEN 'set default' WHEN 'a' THEN 'no action' END AS on_delete
+						FROM pg_constraint c
+						LEFT JOIN LATERAL UNNEST(c.conkey) WITH ORDINALITY AS u(attnum, attposition) ON TRUE
+						LEFT JOIN LATERAL UNNEST(c.confkey) WITH ORDINALITY AS f_u(attnum, attposition) ON f_u.attposition = u.attposition
+						JOIN pg_class tbl ON tbl.oid = c.conrelid
+						JOIN pg_namespace sch ON sch.oid = tbl.relnamespace
+						LEFT JOIN pg_attribute col ON (col.attrelid = tbl.oid AND col.attnum = u.attnum)
+						LEFT JOIN pg_class f_tbl ON f_tbl.oid = c.confrelid
+						LEFT JOIN pg_namespace f_sch ON f_sch.oid = f_tbl.relnamespace
+						LEFT JOIN pg_attribute f_col ON (f_col.attrelid = f_tbl.oid AND f_col.attnum = f_u.attnum)
+						WHERE c.contype = 'f'
+						GROUP BY
+							c.conname, c.contype, sch.nspname, tbl.relname, f_sch.nspname, f_tbl.relname
+							-- ,on_update, on_delete
+						-- ORDER BY self_schema, self_table
+					)
+					SELECT
+						-- self_schema,
+						-- self_table,
+						-- self_column,
+						destination_schema AS {$this->quote}database{$this->quote},
+						destination_table AS {$this->quote}table{$this->quote},
+						destination_field AS {$this->quote}field{$this->quote}
+					FROM foreignkeys
+					WHERE
+						    self_schema = :database
+						AND self_table = :table
+						AND self_column = :field
+				;";
+				break;
+			case 'mysql':
+			default:
+				$query = "
+					SELECT
+						-- DISTINCT kcu.TABLE_NAME,						/* Start table */
+						-- kcu.TABLE_SCHEMA,							/* Start database */
+						-- kcu.COLUMN_NAME,								/* Start field */
+						kcu.REFERENCED_TABLE_SCHEMA AS {$this->quote}database{$this->quote},		/* Destination database */
+						kcu.REFERENCED_TABLE_NAME AS {$this->quote}table{$this->quote},			/* Destination table */
+						kcu.REFERENCED_COLUMN_NAME AS {$this->quote}field{$this->quote}			/* Destination field */
+						-- ,
+						-- UPDATE_RULE,
+						-- DELETE_RULE
+					FROM information_schema.KEY_COLUMN_USAGE AS kcu
+					INNER JOIN information_schema.referential_constraints AS rc ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+					WHERE
+							TABLE_SCHEMA = :database
+						AND kcu.TABLE_NAME = :table
+						AND kcu.COLUMN_NAME = :field
+						AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
+					ORDER BY kcu.TABLE_NAME, kcu.COLUMN_NAME
+				;";
+		}
 		$preparedStatementValues = array ('database' => $database, 'table' => $table, 'field' => $field);
 		$data = $this->getOne ($query, false, true, $preparedStatementValues);
 		

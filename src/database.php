@@ -1257,29 +1257,6 @@ class database
 	}
 	
 	
-	# Function to clean data
-	public function escape ($uncleanData, $cleanKeys = true)
-	{
-		# End if no data
-		if (empty ($uncleanData)) {return $uncleanData;}
-		
-		# If the data is an string, return it directly
-		if (is_string ($uncleanData)) {
-			return addslashes ($uncleanData);
-		}
-		
-		# Loop through the data
-		$data = array ();
-		foreach ($uncleanData as $key => $value) {
-			if ($cleanKeys) {$key = $this->escape ($key);}
-			$data[$key] = $this->escape ($value);
-		}
-		
-		# Return the data
-		return $data;
-	}
-	
-	
 	# Function to deal with quotation, i.e. escaping AND adding quotation marks around the item
 	/* private */ public function quote ($string)
 	{

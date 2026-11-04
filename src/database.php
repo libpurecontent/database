@@ -2031,8 +2031,8 @@ if (!$rows) {
 		}
 		
 		# Add in the SQL statement
-		$error['query'] = $this->getQuery (true);
-		$error['queryEmulated'] = $this->getQuery (false);
+		$error['query'] = $this->getQueryUnsafeEmulatedForDebugging (true);	// Shows the raw query with placeholders still present
+		$error['queryEmulated'] = $this->getQueryUnsafeEmulatedForDebugging (false);	// Emulated version, with placeholders substituted by quoted values, not safe for actual execution
 		
 		# Return the details
 		return $error;
@@ -2396,11 +2396,11 @@ if (!$rows) {
 		# End if logging disabled
 		if (!$this->logFile) {return false;}
 		
-		# Get the query
-		$query = $this->getQuery ();
+		# Get the (emulated) query, not safe for actual execution
+		$queryEmulated = $this->getQueryUnsafeEmulatedForDebugging ();
 		
 		# Ensure the query ends with a newline
-		$query = trim ($query);
+		$queryEmulated = trim ($queryEmulated);
 		
 		# End if the file is not writable, or the containing directory is not if the file does not exist
 		if (file_exists ($this->logFile)) {
@@ -2411,7 +2411,7 @@ if (!$rows) {
 		}
 		
 		# Create the log entry
-		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d H:i:s') . ' by ' . $this->userForLogging . ' */ ' . trim (str_replace ("\r\n", '\\r\\n', $query));
+		$logEntry = '/* ' . ($result ? 'Success' : 'Failure') . ' ' . date ('Y-m-d H:i:s') . ' by ' . $this->userForLogging . ' */ ' . trim (str_replace ("\r\n", '\\r\\n', $queryEmulated));
 		
 		# Append the insert ID as a comment if required
 		if ($insertId) {
@@ -2474,8 +2474,8 @@ if (!$rows) {
 	}
 	
 	
-	# Accessor function to get the query
-	public function getQuery ($showRawPreparedQuery = false)
+	# Accessor function to get the query as an (unsafe) emulated string for debugging; as this uses PDO::quote () this is not safe for actual execution
+	public function getQueryUnsafeEmulatedForDebugging ($showRawPreparedQuery = false)
 	{
 		# Return the direct query if emulation of what the prepared statement is not required
 		if ($showRawPreparedQuery) {
@@ -2517,16 +2517,16 @@ if (!$rows) {
 		# Do replacement
 		if ($usingNamedParameters) {
 			krsort ($values);	// Sort by key reversed, so that longer key names come first to avoid overlapping replacements
-			$query = strtr ($this->query, $values);
+			$queryEmulated = strtr ($this->query, $values);
 		} else {
-			$query = $this->query;
+			$queryEmulated = $this->query;
 			foreach ($values as $value) {
-				$query = preg_replace ('/\?/', str_replace ('\\', '\\\\', $value), $query, 1);	// Do replacement of each ? in order, using the limit=1 technique as per http://stackoverflow.com/questions/4863863 ; the str_replace must be used to replace a literal backslash \ to \\ in the replacement string
+				$queryEmulated = preg_replace ('/\?/', str_replace ('\\', '\\\\', $value), $queryEmulated, 1);	// Do replacement of each ? in order, using the limit=1 technique as per http://stackoverflow.com/questions/4863863 ; the str_replace must be used to replace a literal backslash \ to \\ in the replacement string
 			}
 		}
 		
-		# Return the query
-		return $query;
+		# Return the (emulated) query; this is not safe for actual execution
+		return $queryEmulated;
 	}
 	
 	

@@ -1258,7 +1258,8 @@ class database
 	
 	
 	# Function to deal with quotation, i.e. escaping AND adding quotation marks around the item
-	/* private */ public function quote ($string)
+	#!# Review remaining usage as should no longer be necessary
+	private function quote ($string)
 	{
 		# Special case a timestamp indication as unquoted SQL
 		if ($string == 'NOW()') {

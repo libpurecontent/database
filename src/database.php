@@ -1257,26 +1257,6 @@ class database
 	}
 	
 	
-	# Function to deal with quotation, i.e. escaping AND adding quotation marks around the item
-	#!# Review remaining usage as should no longer be necessary
-	private function quote ($string)
-	{
-		# Special case a timestamp indication as unquoted SQL
-		if ($string == 'NOW()') {
-			return $string;
-		}
-		
-		# Quote the string by calling the PDO quoting method
-		$string = $this->connection->quote ($string);
-		
-		# Undo (unwanted automatic) backlash quoting in PDO::quote, i.e replace \\ with \ in the string
-		$string = str_replace ('\\\\', '\\', $string);
-		
-		# Return the quoted string
-		return $string;
-	}
-	
-	
 	# Function to construct and execute a SELECT statement
 	public function select ($database, $table, $conditions = array (), $columns = array (), $associative = true, $orderBy = false, $limit = false, $keyed = true, $like = false /* or true or array of fields */)
 	{
@@ -2527,6 +2507,26 @@ if (!$rows) {
 		
 		# Return the (emulated) query; this is not safe for actual execution
 		return $queryEmulated;
+	}
+	
+	
+	# Function to deal with quotation, i.e. escaping AND adding quotation marks around the item
+	#!# Review remaining usage as should no longer be necessary
+	private function quote ($string)
+	{
+		# Special case a timestamp indication as unquoted SQL
+		if ($string == 'NOW()') {
+			return $string;
+		}
+		
+		# Quote the string by calling the PDO quoting method
+		$string = $this->connection->quote ($string);
+		
+		# Undo (unwanted automatic) backlash quoting in PDO::quote, i.e replace \\ with \ in the string
+		$string = str_replace ('\\\\', '\\', $string);
+		
+		# Return the quoted string
+		return $string;
 	}
 	
 	

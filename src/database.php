@@ -2490,7 +2490,7 @@ if (!$rows) {
 					$values[$key] = $value;
 					break;
 				default:
-					$values[$key] = $this->quote ($value);
+					$values[$key] = $this->quoteUnsafeEmulatedForDebugging ($value);
 			}
 		}
 		
@@ -2510,9 +2510,8 @@ if (!$rows) {
 	}
 	
 	
-	# Function to deal with quotation, i.e. escaping AND adding quotation marks around the item
-	#!# Review remaining usage as should no longer be necessary
-	private function quote ($string)
+	# Function to deal with quotation, i.e. escaping AND adding quotation marks around the item, for emulation purposes
+	private function quoteUnsafeEmulatedForDebugging ($string)
 	{
 		# Special case a timestamp indication as unquoted SQL
 		if ($string == 'NOW()') {

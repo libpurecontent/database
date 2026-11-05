@@ -1405,7 +1405,7 @@ class database
 				unset ($data[$key]);
 				continue;
 			}
-			#!# If the field has a space in, this will cause a failure
+			#!# If the field has a space / space / other special character in, this will cause a failure; see: https://stackoverflow.com/a/5810058
 			$preparedValuePlaceholders[] = ':' . $key;
 		}
 		$preparedValuePlaceholders = implode (', ', $preparedValuePlaceholders);

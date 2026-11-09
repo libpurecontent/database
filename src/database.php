@@ -2689,6 +2689,20 @@ if (!$rows) {
 	}
 	
 	
+	# Function to format an ENUM/SET definition for use in CREATE TABLE / ALTER TABLE
+	public function enumDefinition ($values, $asSet = false /* SET not ENUM */)
+	{
+		# Escape each value for quotes
+		$singleQuotedValues = array ();
+		foreach ($values as $index => $value) {
+			$singleQuotedValues[] = "'" . str_replace ("'", "''", trim ($value)) . "'";	// Surround with single-quote and escape single-quotes with two single-quotes
+		}
+		
+		# Create and return the definition
+		return (!$asSet ? 'ENUM' : 'SET') . '(' . implode (', ', $singleQuotedValues) . ')';
+	}
+	
+	
 	# Function to execute SQL into MySQL
 	public function runSql ($settings, $input, $isFile = true, &$outputText = false)
 	{

@@ -1098,7 +1098,7 @@ class database
 	{
 		# Get the data
 		$queryByVendor = array (
-			'mysql'	=> "SHOW DATABASES;",
+			'mysql'	=> 'SHOW DATABASES;',
 			'pgsql'	=> 'SELECT datname AS "Database" FROM pg_database WHERE datistemplate = false;',
 		);
 		$query = (isSet ($queryByVendor[$this->vendor]) ? $queryByVendor[$this->vendor] : $queryByVendor['mysql']);	// Default to MySQL format
@@ -1140,7 +1140,11 @@ class database
 	private function _databaseExists ($database)
 	{
 		# Get the data; note that this uses getData rather than getOne - getOne would return false if there was more than one match when using %; note that the caller will only be able to see those databases for which it has some kind of privilege, unless it has the global SHOW DATABASES privilege
-		$query = "SHOW DATABASES LIKE :database;";
+		$queryByVendor = array (
+			'mysql'	=> 'SHOW DATABASES LIKE :database;',
+			'pgsql'	=> 'SELECT datname FROM pg_database WHERE datname = :database;',
+		);
+		$query = (isSet ($queryByVendor[$this->vendor]) ? $queryByVendor[$this->vendor] : $queryByVendor['mysql']);	// Default to MySQL format
 		$preparedStatementValues = array ('database' => $database);
 		$data = $this->_getData ($query, false, true, $preparedStatementValues);
 		
@@ -1222,6 +1226,7 @@ class database
 		}
 		
 		# Get the data; note that this uses getData rather than getOne - getOne would return false if there was more than one match when using %; note that the caller will only be able to see those databases for which it has some kind of privilege, unless it has the global SHOW DATABASES privilege
+		#!# No support yet for PostgreSQL
 		$query = "SHOW TABLES FROM {$database} LIKE :table;";
 		$preparedStatementValues = array ('table' => $table);
 		$data = $this->_getData ($query, false, true, $preparedStatementValues);

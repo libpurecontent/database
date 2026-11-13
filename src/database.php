@@ -1899,9 +1899,9 @@ if (!$rows) {
 	{
 		# Determine the query
 		if ($limitedPrivilegesAvailable) {
-			$query = "DELETE FROM {$database}.{$table};";	// i.e. delete everything
+			$query = "DELETE FROM {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote};";	// i.e. delete everything, though does not reset counters
 		} else {
-			$query = "TRUNCATE {$database}.{$table};";
+			$query = "TRUNCATE {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote};";
 		}
 		
 		# Run the query, capturing the rows changed

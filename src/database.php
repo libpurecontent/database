@@ -786,7 +786,7 @@ class database
 					$data = $this->sqliteTableStructureEmulation ($data, $table);
 					break;
 				case 'pgsql':
-					$query = "SELECT * FROM information_schema.columns WHERE table_catalog = '{$database}' AND table_name = '{$table}';";
+					$query = "SELECT * FROM information_schema.columns WHERE table_catalog = '{$database}' AND table_schema = '{$this->schema}' AND table_name = '{$table}';";	// Schema needs to be specified in case database has two tables of same name in different schemas; see: https://stackoverflow.com/a/51732353
 					$data = $this->_getData ($query);
 					$data = $this->pgsqlTableStructureEmulation ($data, $table);
 					break;

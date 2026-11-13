@@ -6,7 +6,6 @@ class database
 {
 	# General class properties
 	public $connection = NULL;
-	private $hostname;
 	private $vendor;
 	private $preparedStatement = NULL;
 	private $query = NULL;
@@ -34,7 +33,6 @@ class database
 		$this->userForLogging = $userForLogging;
 		
 		# Set properties
-		$this->hostname = $hostname;
 		$this->vendor = $vendor;
 		
 		# Convert localhost to 127.0.0.1
@@ -63,7 +61,7 @@ class database
 		$this->nativeTypesDecimalHandling = $nativeTypesDecimalHandling;
 		
 		#!# Need to add support for MySQL TINYINT as boolean - e.g. PostgreSQL has native BOOLEAN support, so value=true comes back in data
-
+		
 		# Connect to the database and return the status
 		if ($vendor == 'sqlite') {
 			$dsn = 'sqlite:' . $database;	// Database should be a filename with absolute path

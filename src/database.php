@@ -1156,7 +1156,7 @@ class database
 		# Get the data
 		$queryByVendor = array (
 			'mysql'	=> "SHOW TABLES FROM {$this->quote}{$database}{$this->quote};",
-			'pgsql' => "SELECT table_name AS \"Tables_in_{$database}\" FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema = '{$this->schema}'",
+			'pgsql' => "SELECT table_name AS \"Tables_in_{$database}\" FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_catalog = '{$database}' AND table_schema = '{$this->schema}';",
 		);
 		$query = (isSet ($queryByVendor[$this->vendor]) ? $queryByVendor[$this->vendor] : $queryByVendor['mysql']);	// Default to MySQL format
 		$data = $this->_getData ($query);

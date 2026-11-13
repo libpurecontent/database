@@ -1946,7 +1946,7 @@ if (!$rows) {
 		}
 		
 		# Compile the query
-		$query = "ALTER TABLE {$database}.{$table} COMMENT = '{$tableComment}';";	// Requires ALTER privilege
+		$query = "ALTER TABLE {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote} COMMENT = '{$tableComment}';";	// Requires ALTER privilege
 		
 		# Run the query, capturing the rows changed
 		$rows = $this->_query ($query);

@@ -14,6 +14,7 @@ class database
 	private $strictWhere = false;
 	private $nativeTypesDecimalHandling;
 	private $schema = 'public';		// For PostgreSQL; not yet configurable
+	private $schemaToken = '';
 	private $fieldsCache = array ();
 	
 	# Error logger properties
@@ -77,6 +78,9 @@ class database
 		
 		# Set quote style
 		$this->quote = ($this->vendor == 'mysql' ? '`' : '"');
+
+		# Set schema token if needed, e.g. for PostgreSQL, this will turn `SELECT * FROM database.table` into `SELECT * FROM database.schema.table` in appropriate cases
+		$this->schemaToken = ($this->vendor == 'pgsql' ? "{$this->quote}{$this->schema}{$this->quote}." : '');
 	}
 	
 	
@@ -750,15 +754,10 @@ class database
 		# Check that the table exists
 		$tables = $this->getTables ($database);
 		if (!in_array ($table, $tables)) {return false;}
-
-		# Postgres does not support cross-database queries but requires a schema instead
-		#!# For now assume the current database and a schema 'public'
-		$dataPool = $database;
-		if ($this->vendor == 'pgsql') {$dataPool = 'public';}
-
+		
 		# Get the total
 		#!# 'WHERE' should be within this here, not part of the supplied parameter
-		$query = "SELECT COUNT(*) AS total FROM {$this->quote}{$dataPool}{$this->quote}.{$this->quote}{$table}{$this->quote} {$restrictionSql};";
+		$query = "SELECT COUNT(*) AS total FROM {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote} {$restrictionSql};";
 		$data = $this->_getOne ($query);
 		
 		# Return the value
@@ -1330,8 +1329,7 @@ class database
 		$limit = ($limit ? " LIMIT {$limit}" : '');
 		
 		# Prepare the statement
-		$databasePrefix = ($this->vendor == 'pgsql' ? '' : "{$this->quote}{$database}{$this->quote}.");
-		$query = "SELECT {$what} FROM {$databasePrefix}{$this->quote}{$table}{$this->quote}{$where}{$orderBy}{$limit};\n";
+		$query = "SELECT {$what} FROM {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote}{$where}{$orderBy}{$limit};\n";
 		
 		# Get the data
 		$data = $this->_getData ($query, ($associative ? "{$database}.{$table}" : false), $keyed, $conditions, array (), false, $datasource = array ($database, $table));
@@ -1422,7 +1420,7 @@ class database
 		$onDuplicateKeyUpdate = $this->onDuplicateKeyUpdate ($onDuplicateKeyUpdate, $data);
 		
 		# Assemble the query
-		$query = "{$statement} INTO {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote} ({$fields}) VALUES ({$preparedValuePlaceholders}){$onDuplicateKeyUpdate};\n";
+		$query = "{$statement} INTO {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote} ({$fields}) VALUES ({$preparedValuePlaceholders}){$onDuplicateKeyUpdate};\n";
 		
 		# In safe mode, only show the query
 		if ($safe) {
@@ -1541,7 +1539,7 @@ class database
 			$onDuplicateKeyUpdateThisChunk = $this->onDuplicateKeyUpdate ($onDuplicateKeyUpdate, $firstData);
 			
 			# Assemble the query
-			$query = "{$statement} INTO {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote} ({$fields}) VALUES (" . implode ('),(', $valuesPreparedSet) . "){$onDuplicateKeyUpdateThisChunk};\n";
+			$query = "{$statement} INTO {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote} ({$fields}) VALUES (" . implode ('),(', $valuesPreparedSet) . "){$onDuplicateKeyUpdateThisChunk};\n";
 			
 			# Prevent submission of over-long queries
 			if ($maxLength = $this->getVariable ('max_allowed_packet')) {
@@ -1648,7 +1646,7 @@ if (!$rows) {
 		}
 		
 		# Assemble the query
-		$query = "UPDATE {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote} SET {$preparedValueUpdates}{$where};\n";
+		$query = "UPDATE {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote} SET {$preparedValueUpdates}{$where};\n";
 		
 		# In safe mode, only show the query
 		if ($safe) {
@@ -1737,7 +1735,7 @@ if (!$rows) {
 			}
 			
 			# Assemble the overall query
-			$query  = "UPDATE {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote}";
+			$query  = "UPDATE {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote}";
 			$query .= "\n\tSET " . implode (",\n\t", $querySetCaseBlocks);
 			$query .= "\nWHERE {$this->quote}{$uniqueField}{$this->quote} IN (" . implode (', ', $keyPlaceholders) . ')';
 			
@@ -1789,7 +1787,7 @@ if (!$rows) {
 		$limit = ($limit ? " LIMIT {$limit}" : '');
 		
 		# Assemble the query
-		$query = "DELETE FROM {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote}{$where}{$limit};\n";
+		$query = "DELETE FROM {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote}{$where}{$limit};\n";
 		
 		# Execute the query
 		#!# Currently unable to distinguish syntax error vs nothing to delete
@@ -1821,7 +1819,7 @@ if (!$rows) {
 		}
 		
 		# Assemble the query
-		$query = "DELETE FROM {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote} WHERE " . ($this->strictWhere ? 'BINARY ' : '') . "{$this->quote}{$field}{$this->quote} IN (" . implode (', ', $placeholders) . ");";
+		$query = "DELETE FROM {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote} WHERE " . ($this->strictWhere ? 'BINARY ' : '') . "{$this->quote}{$field}{$this->quote} IN (" . implode (', ', $placeholders) . ");";
 		
 		# Execute the query
 		$rows = $this->_execute ($query, $placeholderValues);
@@ -1859,7 +1857,7 @@ if (!$rows) {
 		}
 		
 		# Compile the overall SQL; type is deliberately set to InnoDB so that rows are physically stored in the unique key order
-		$query = 'CREATE TABLE' . ($ifNotExists ? ' IF NOT EXISTS' : '') . " {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote} (" . implode (', ', $fieldsSql) . ") ENGINE={$type};";
+		$query = 'CREATE TABLE' . ($ifNotExists ? ' IF NOT EXISTS' : '') . " {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote} (" . implode (', ', $fieldsSql) . ") ENGINE={$type};";
 		
 		# Create the table
 		if ($this->_execute ($query) === false) {return false;}
@@ -1873,6 +1871,7 @@ if (!$rows) {
 	public function getTableStatus ($database, $table, $getOnly = false /*array ('Comment')*/)
 	{
 		# Define the query
+		#!# No support yet for PostgreSQL
 		$query = "SHOW TABLE STATUS FROM {$this->quote}{$database}{$this->quote} LIKE '{$table}';";
 		
 		# Get the results
@@ -1899,9 +1898,9 @@ if (!$rows) {
 	{
 		# Determine the query
 		if ($limitedPrivilegesAvailable) {
-			$query = "DELETE FROM {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote};";	// i.e. delete everything, though does not reset counters
+			$query = "DELETE FROM {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote};";	// i.e. delete everything, though does not reset counters
 		} else {
-			$query = "TRUNCATE {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote};";
+			$query = "TRUNCATE {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote};";
 		}
 		
 		# Run the query, capturing the rows changed
@@ -1946,7 +1945,7 @@ if (!$rows) {
 		}
 		
 		# Compile the query
-		$query = "ALTER TABLE {$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote} COMMENT = '{$tableComment}';";	// Requires ALTER privilege
+		$query = "ALTER TABLE {$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote} COMMENT = '{$tableComment}';";	// Requires ALTER privilege
 		
 		# Run the query, capturing the rows changed
 		$rows = $this->_query ($query);
@@ -2062,7 +2061,7 @@ if (!$rows) {
 			
 			# Get the data
 			#!# Enable recursive lookups
-			$query = "SELECT * FROM {$targetDatabase}.{$targetTable}{$orderbySql};";
+			$query = "SELECT * FROM {$targetDatabase}.{$this->schemaToken}{$targetTable}{$orderbySql};";
 			if (!$data = $databaseConnection->_getData ($query, "{$targetDatabase}.{$targetTable}")) {
 				return array ($fieldname, array (), $targetDatabase, $targetTableMoniker);
 			}
@@ -2640,8 +2639,9 @@ if (!$rows) {
 	public function addToSet ($database, $table, $field, $value, $whereField, $whereValue)
 	{
 		# Define the query
+		#!# PostgreSQL has no SET datatype so this will likely fail
 		$query = "UPDATE
-			{$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote}
+			{$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote}
 			SET {$this->quote}{$field}{$this->quote} = CONCAT_WS(',', IF({$this->quote}{$field}{$this->quote} = '', NULL, {$this->quote}{$field}{$this->quote}), :value)
 			WHERE {$this->quote}{$whereField}{$this->quote} = :id
 		;";
@@ -2669,7 +2669,7 @@ if (!$rows) {
 	{
 		# Define the query
 		$query = "UPDATE
-			{$this->quote}{$database}{$this->quote}.{$this->quote}{$table}{$this->quote}
+			{$this->quote}{$database}{$this->quote}.{$this->schemaToken}{$this->quote}{$table}{$this->quote}
 			SET {$this->quote}{$field}{$this->quote} = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', {$this->quote}{$field}{$this->quote}, ','), CONCAT(',', :value, ','), ','))
 			WHERE {$this->quote}{$whereField}{$this->quote} = :id
 		;";

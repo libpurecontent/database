@@ -80,6 +80,7 @@ class database
 		$this->quote = ($this->vendor == 'mysql' ? '`' : '"');
 
 		# Set schema token if needed, e.g. for PostgreSQL, this will turn `SELECT * FROM database.table` into `SELECT * FROM database.schema.table` in appropriate cases
+		# In PostgreSQL, the hierarchy is [Cluster >] Catalog (Database) > Schema > Table
 		$this->schemaToken = ($this->vendor == 'pgsql' ? "{$this->quote}{$this->schema}{$this->quote}." : '');
 	}
 	

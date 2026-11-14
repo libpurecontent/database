@@ -2210,7 +2210,6 @@ if (!$rows) {
 		# Obtain the data; see: https://stackoverflow.com/questions/201621/
 		switch ($this->vendor) {
 			case 'pgsql':
-				$database = $this->schema;
 				/* This standard SQL approach can't be used, because most users won't have a privilege on information_schema.constraint_column_usage, which can't be added:
 				$query_requiresprivileges = "
 					SELECT
@@ -2231,15 +2230,19 @@ if (!$rows) {
 				;";
 				*/
 				# See: https://dba.stackexchange.com/questions/36979/ from which this has been adapted, using a CTE to facilitate filtering
+				# PostgreSQL does not support cross-database foreign keys, so because foreign keys can only reference tables within the same database, system catalogues (like pg_constraint) only store schema and table names, not database names.
+				# Accordingly, $database is forced into the query below (as :database)
 				$query = "
 					WITH foreignkeys AS
 					(
 						SELECT
+							:database AS self_database,
 							-- c.conname AS constraint_name,
 							-- c.contype AS constraint_type,
 							sch.nspname AS self_schema,
 							tbl.relname AS self_table,
 							(ARRAY_AGG(col.attname ORDER BY u.attposition))[1] AS self_column,
+							:database AS destination_database,
 							f_sch.nspname AS destination_schema,
 							f_tbl.relname AS destination_table,
 							(ARRAY_AGG(f_col.attname ORDER BY f_u.attposition))[1] AS destination_field
@@ -2264,12 +2267,13 @@ if (!$rows) {
 						-- self_schema,
 						-- self_table,
 						-- self_column,
-						destination_schema AS {$this->quote}database{$this->quote},
+						destination_database AS {$this->quote}database{$this->quote},
 						destination_table AS {$this->quote}table{$this->quote},
 						destination_field AS {$this->quote}field{$this->quote}
 					FROM foreignkeys
 					WHERE
-						    self_schema = :database
+						    self_database = :database
+						AND self_schema = '{$this->schema}'
 						AND self_table = :table
 						AND self_column = :field
 				;";
